@@ -1,49 +1,61 @@
 #!/usr/bin/env python3
 """
-Extract SD curves from the Swedish 0-2y growth chart PDFs (PCPAL).
+Extraction primitives for the Swedish 0-2y growth chart PDFs (PCPAL).
+
+This module is a LIBRARY: it recovers curves, groups them into bundles,
+reads the age axis and assigns SD levels. It does not calibrate. Run
+`gridcal.py`, which calibrates from the chart's own gridlines and writes
+the JSON.
 
 Design notes (learned the hard way from the real file)
 ------------------------------------------------------
-* Each panel draws FIVE curves, not seven: -2SD, -1SD, M, +1SD, +2SD. The
+* Each bundle draws FIVE curves, not seven: -2SD, -1SD, M, +1SD, +2SD. The
   mean is drawn thicker (lw 1.92 vs 0.72), which identifies it directly.
   The +/-3SD lines are dashed and land in page.lines as hundreds of tiny
-  segments; we don't need them, since mean and SD determine everything.
+  segments. Nothing in this module uses them, which is precisely why
+  gridcal.py can use them as a held-out validation set.
 
-* Panels are NOT identified from titles or tick sets. Both are unreliable
-  here: the printed titles sit at coordinates that don't track their own
-  panel, and the tick sets overlap (50 appears on two axes). Instead we
-  identify panels by physics — for the correct measure, pixels-per-data-unit
-  must agree at birth and at 24 months. On the real chart this is decisive:
-  weight matches to 0.3%, everything else is off by 20%+.
+* The chart is ONE shared plot area, not three stacked panels. All three
+  bundles are drawn diagonally across the same x 176..555 region and they
+  overlap heavily in y (head 106..323, length 261..569, weight 452..737).
+  Do not try to separate them by y band; there is no such band.
+
+* Bundle order top to bottom is HEAD, LENGTH, WEIGHT. An earlier version of
+  this file recorded weight/length/head as an established fact. It was
+  backwards. See identify_panels() for how that happened.
+
+* ALL THREE vertical axes are logarithmic (head 1089, length 1012, weight
+  374 px/decade): log10(value) vs pixel is linear to R^2 = 1.000000. The
+  length axis has NO dual-scale break at 60 cm. An earlier piecewise fit
+  that "found" a break at 69.7 cm was absorbing the unmodelled log.
+
+* Being drawn on a log axis is not the same as being log-normally
+  distributed. Weight is log-normal (SD lines equidistant in log10 kg);
+  length and head are normal (equidistant in cm). gridcal.py measures this
+  rather than assuming it.
 
 * The AGE axis is compressed (31 px/month at birth falling to ~10 by 21
-  months) and the LENGTH axis is dual-scale (magnified below 60 cm). Neither
-  is assumed. Age is interpolated through the printed tick row; the vertical
-  axis is fitted to the published Table 4 values, which absorbs whatever
-  nonlinearity the chart uses.
-
-* Calibration therefore takes absolute levels from the published table and
-  only the SHAPE BETWEEN ANCHORS from the PDF. That is the honest split: the
-  extra resolution is what you came for, the absolute values remain those of
-  the published reference.
+  months) and is interpolated through the printed tick row, not modelled.
 
 Usage
     pip install pdfplumber numpy
-    python extract_growth_curves.py PCPAL-0-2ar-pojke.pdf --sex male -o boys.json
+    python gridcal.py PCPAL-0-2ar-pojke.pdf --sex male -o boys-curves.json
 """
 
-import argparse
-import json
 import re
 import sys
 from collections import defaultdict
 from itertools import permutations
 
 import numpy as np
-import pdfplumber
 
 # Niklasson & Albertsson-Wikland, BMC Pediatrics 2008;8:8, Table 4.
-# (mean, SD). Weight is on the log10(kg) scale, as published.
+# (mean, SD). Weight is on the log10(kg) scale, as published; length and head
+# are in cm. That unit split is what broke the old identify_panels().
+#
+# DIAGNOSTIC ONLY. Nothing in the calibration path may read this. The chart is
+# ground truth; this table is an independent reference we report divergence
+# against. It is also an unverified transcription (see HANDOFF.md).
 TABLE4 = {
   "male": {
     0:  {"weight": (0.570, 0.053), "length": (51.6, 1.6), "head": (35.8, 1.3)},
@@ -172,155 +184,106 @@ def age_axis(page, words, x_lo, x_hi):
     return lambda x: np.interp(x, xs, vs), len(clean)
 
 
-def identify_panels(groups, ages_of, sex):
-    """Match each panel to a measure by scale consistency.
+def identify_panels(groups, axes, ages_of):
+    """Match each curve bundle to a measure using the chart's own geometry.
 
-    For the right measure, pixels-per-data-unit is the same at birth and at
-    24 months. For a wrong one it is not, by a wide margin. Length is scored
-    but expected to be poor (its axis is deliberately nonlinear below 60 cm),
-    so it is effectively assigned by elimination.
+    NOTE ON THE PREVIOUS VERSION. This used to score panels by "scale
+    consistency": pixels-per-SD at birth vs at 24 months, divided by the
+    TABLE4 SD at those ages. That test was wrong and confidently so — it
+    reported the WRONG answer at 0.2%. TABLE4 stores weight SDs in log10
+    units and length/head SDs in centimetres, so the ratio compared
+    incompatible units. On a log axis the head bundle's pixel spacing
+    happens to shrink at almost exactly weight's log-SD ratio (0.813 vs
+    0.811), so head was identified as weight and vice versa. It is the
+    canonical example of trap #4: a check that cannot fail is not a check.
+
+    The replacement uses no external data at all.
+
+    Primary test — GRIDLINE-SPAN OVERLAP. Each measure's axis is defined by
+    its own labelled gridlines, which cover a known y-range. A bundle drawn
+    against that axis must lie in that range. This is decisive: the correct
+    measure scores 84-98% overlap, the alternatives ~0%.
+
+    Corroborating test — SD EQUIDISTANCE. The five curves are +/-2, +/-1 and
+    M, so once mapped through the right axis their four gaps must be equal.
+    Reported per measure, but NOT used to choose: the head and length axes
+    have similar px/decade (1089 vs 1012), so swapping them barely changes
+    equidistance and the test cannot separate them on its own. It is a
+    sanity floor, not a discriminator, and it is labelled as such below.
+
+    The real out-of-sample check on this assignment is the +/-3SD dashed
+    lines, which nothing here touches — see gridcal.check_3sd().
     """
-    def px_per_sd(group, month, ages):
-        lvl = label_group(group)
-        vals = []
-        for l in (-2, -1, 0, 1, 2):
-            p = lvl[l]
-            vals.append(np.interp(month, ages(p[:, 0]), p[:, 1]))
-        return abs(np.mean(np.diff(sorted(vals))))
+    measures = ("weight", "length", "head")
 
-    scores = {}
+    def extent(group):
+        ys = np.concatenate([c["pts"][:, 1] for c in group])
+        return float(ys.min()), float(ys.max())
+
+    overlap = {}
     for gi, g in enumerate(groups):
-        s0 = px_per_sd(g, 0, ages_of)
-        s24 = px_per_sd(g, 24, ages_of)
-        for m in ("weight", "length", "head"):
-            sd0 = TABLE4[sex][0][m][1]
-            sd24 = TABLE4[sex][24][m][1]
-            if not np.isfinite(s0) or not np.isfinite(s24) or s0 <= 0 or s24 <= 0:
-                scores[(gi, m)] = np.inf
-                print(f"  warning: panel {gi} gave degenerate spacing "
-                      f"({s0:.2f}, {s24:.2f}) — check curve grouping",
-                      file=sys.stderr)
-            else:
-                scores[(gi, m)] = abs((s0 / sd0) / (s24 / sd24) - 1)
+        lo, hi = extent(g)
+        for m in measures:
+            s0, s1 = axes[m]["span"]
+            overlap[(gi, m)] = max(0.0, min(hi, s1) - max(lo, s0)) / (hi - lo)
 
-    best, best_cost = tuple(("weight", "length", "head")), np.inf
-    for perm in permutations(("weight", "length", "head")):
-        cost = sum(scores[(i, m)] for i, m in enumerate(perm) if m != "length")
-        if not np.isfinite(cost):
-            continue
-        if cost < best_cost:
-            best, best_cost = perm, cost
+    best, best_score = None, -np.inf
+    for perm in permutations(measures):
+        score = sum(overlap[(i, m)] for i, m in enumerate(perm))
+        if score > best_score:
+            best, best_score = perm, score
 
-    print("\npanel identification (scale consistency, lower is better):")
+    print("\npanel identification (gridline-span overlap, higher is better):")
     for gi, m in enumerate(best):
-        note = "  <- nonlinear axis, assigned by elimination" if m == "length" else ""
-        s = scores[(gi, m)]
-        shown = "  n/a" if not np.isfinite(s) else f"{s * 100:6.1f}%"
-        print(f"  panel {gi} -> {m:7s}  {shown}{note}")
+        others = " ".join(f"{o}:{overlap[(gi, o)] * 100:.0f}%"
+                          for o in measures if o != m)
+        print(f"  bundle {gi} -> {m:7s} {overlap[(gi, m)] * 100:5.1f}%   "
+              f"(rejected: {others})")
+
+    # The margin is what makes this decisive; assert it rather than assume it.
+    for gi, m in enumerate(best):
+        rival = max(overlap[(gi, o)] for o in measures if o != m)
+        if overlap[(gi, m)] < 0.60 or rival > 0.50:
+            raise SystemExit(
+                f"panel identification is not decisive for bundle {gi}: "
+                f"{m} scores {overlap[(gi, m)]:.2f} against a rival at "
+                f"{rival:.2f}. Refusing to guess.")
+
+    print("  corroboration — SD-gap CV in each measure's own space "
+          "(floor check only, cannot separate head from length):")
+    for gi, m in enumerate(best):
+        cv, space = sd_gap_cv(groups[gi], axes[m], ages_of)
+        flag = "ok" if cv < 0.02 else "CHECK"
+        print(f"    {m:7s} CV={cv:.4f} in {space:6s} {flag}")
+        if cv >= 0.05:
+            raise SystemExit(
+                f"{m}: SD lines are not equidistant under this axis "
+                f"(CV {cv:.3f}) — assignment or calibration is wrong.")
+
     return list(best)
 
 
-def fit_y_axis(levels, ages_of, sex, measure, holdout=None):
-    """Learn pixel -> value from the published anchors.
+def sd_gap_cv(group, axis, ages_of, months=(0, 6, 12, 18, 24)):
+    """Coefficient of variation of the four inter-curve gaps.
 
-    Uses all five curves at all nine anchor ages (45 points), so the fit
-    covers the full plotted range rather than extrapolating past the mean
-    line. Monotone interpolation, so a nonlinear axis (length) is absorbed
-    rather than assumed away.
+    Tries both linear and log10 space and returns the better one, so the
+    distribution space is measured rather than assumed.
     """
-    pairs = []
-    for month in ANCHORS:
-        if holdout is not None and month == holdout:
-            continue
-        mean, sd = TABLE4[sex][month][measure]
-        for lvl, path in levels.items():
-            y = np.interp(month, ages_of(path[:, 0]), path[:, 1])
-            pairs.append((y, mean + lvl * sd))
-    pairs.sort()
-    ys = np.array([p[0] for p in pairs]); vs = np.array([p[1] for p in pairs])
-    order = np.argsort(ys)
-    return lambda y: np.interp(y, ys[order], vs[order])
-
-
-def validate(levels, ages_of, sex, measure):
-    """Leave-one-age-out: refit without an anchor, then predict it."""
-    worst = 0.0
-    for hold in (3, 9, 15, 21):
-        f = fit_y_axis(levels, ages_of, sex, measure, holdout=hold)
-        mean, sd = TABLE4[sex][hold][measure]
-        for lvl in (-2, 0, 2):
-            path = levels[lvl]
-            y = np.interp(hold, ages_of(path[:, 0]), path[:, 1])
-            got, want = f(y), mean + lvl * sd
-            if measure == "weight":
-                got, want = 10 ** got, 10 ** want
-            worst = max(worst, abs(got - want) / want * 100)
-    return worst
-
-
-def run(pdf_path, sex, out_path, step):
-    with pdfplumber.open(pdf_path) as pdf:
-        page = pdf.pages[0]
-        words = page.extract_words()
-        curves = main_curves(page)
-        groups = group_curves(curves)
-        if len(groups) != 3:
-            raise SystemExit(f"expected 3 panels of 5 curves, got {len(groups)}")
-
-        xs = np.concatenate([c["pts"][:, 0] for c in curves])
-        ages_of, ntick = age_axis(page, words, xs.min(), xs.max())
-        print(f"age axis: {ntick} ticks over x {xs.min():.0f}..{xs.max():.0f}")
-
-        names = identify_panels(groups, ages_of, sex)
-
-        grid = np.arange(0, 24 + 1e-9, step)
-        result = {
-            "sex": sex,
-            "source": "PCPAL chart paths, levels pinned to Niklasson & "
-                      "Albertsson-Wikland 2008 Table 4 (doi:10.1186/1471-2431-8-8)",
-            "ageMonths": grid.round(3).tolist(),
-            "curves": {},
-        }
-
-        print("\nleave-one-age-out validation (worst error at held-out anchors):")
-        for group, measure in zip(groups, names):
-            levels = label_group(group)
-            err = validate(levels, ages_of, sex, measure)
-            flag = "ok" if err < 1.0 else "CHECK"
-            print(f"  {measure:7s}  {err:5.2f}%   {flag}")
-
-            f = fit_y_axis(levels, ages_of, sex, measure)
-            out = {}
-            for lvl, path in sorted(levels.items()):
-                months = ages_of(path[:, 0])
-                vals = f(path[:, 1])
-                if measure == "weight":
-                    vals = 10 ** vals
-                o = np.argsort(months)
-                key = "mean" if lvl == 0 else f"{lvl:+d}SD"
-                out[key] = np.interp(grid, months[o], vals[o]).round(4).tolist()
-            # SD implied by the extracted spacing, at every grid age
-            m = np.array(out["mean"]); p1 = np.array(out["+1SD"])
-            out["sd"] = (np.log10(p1) - np.log10(m) if measure == "weight"
-                         else p1 - m).round(5).tolist()
-            result["curves"][measure] = out
-            result.setdefault("nativeSamplePoints", {})[measure] = \
-                sorted(np.round(ages_of(levels[0][:, 0]), 3).tolist())
-
-    with open(out_path, "w") as fh:
-        json.dump(result, fh, indent=2)
-    print(f"\nwrote {out_path}")
-
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("pdf")
-    ap.add_argument("--sex", choices=["male", "female"], required=True)
-    ap.add_argument("--step", type=float, default=0.5)
-    ap.add_argument("-o", "--out", default="extracted.json")
-    a = ap.parse_args()
-    run(a.pdf, a.sex, a.out, a.step)
-
-
-if __name__ == "__main__":
-    main()
+    levels = label_group(group)
+    per_space = {}
+    for space in ("linear", "log10"):
+        cvs = []
+        for month in months:
+            vals = []
+            for lvl in (-2, -1, 0, 1, 2):
+                p = levels[lvl]
+                y = np.interp(month, ages_of(p[:, 0]), p[:, 1])
+                vals.append(axis["value"](y))
+            v = np.sort(np.asarray(vals, float))
+            if space == "log10":
+                v = np.log10(v)
+            gaps = np.diff(v)
+            cvs.append(np.std(gaps) / np.mean(gaps))
+        per_space[space] = float(np.mean(cvs))
+    space = min(per_space, key=per_space.get)
+    return per_space[space], space
