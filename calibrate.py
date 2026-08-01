@@ -1,5 +1,28 @@
 #!/usr/bin/env python3
 """
+DEPRECATED — SUPERSEDED BY gridcal.py. THIS SCRIPT NO LONGER RUNS.
+
+Kept only as the record of the anchor-fitting approach and why it failed. It
+calls X.identify_panels() with the old signature and will raise immediately.
+Do not revive it; do not use any JSON it produced.
+
+Three things were wrong with it, none visible from its own output:
+
+  * It anchored pixel->value to the published Table 4, making a genuine
+    chart/table disagreement indistinguishable from a calibration bug.
+  * It inherited the swapped head/weight panel assignment, which is what its
+    "flat across SD levels, structured across ages" residual signature was
+    actually reporting.
+  * It modelled the length axis as piecewise-linear with a magnified region
+    below 60 cm. That axis is plain logarithmic, like the other two. The
+    piecewise fit "found" a break at 69.7 cm with slope ratio 1.48 against a
+    prediction of 60 cm and 5.0 — the model was absorbing the missing log.
+
+The replacement calibrates from the chart's own gridlines, takes no external
+data, and validates against the held-out dashed +/-3SD lines. See HANDOFF.md.
+
+---- original docstring follows ----
+
 Calibrate the vertical axes with LOW-PARAMETER models and report honest
 residuals, then write the extracted curves.
 
