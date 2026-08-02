@@ -202,7 +202,8 @@ export const VALIDATION = {
   birthDateRequired: "Fyll i födelsedatum.",
   birthDateInvalid: "Datumet finns inte. Skriv det som ÅÅÅÅ-MM-DD.",
   birthDateFuture: "Födelsedatumet ligger i framtiden.",
-  birthDateTooOld: "Kurvan gäller barn upp till två år.",
+  birthDateAfterMeasurement:
+    "Det finns redan en mätning som är gjord före det här datumet. Ändra eller ta bort den mätningen först.",
   gestationRequired: "Fyll i graviditetslängden — den står på BVC-kortet.",
   gestationDaysRange: "Dagar anges som 0–6.",
   gestationNotTerm:

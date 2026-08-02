@@ -78,6 +78,23 @@ export async function createChildAction(
   if (!validated.ok) return fail(validated.errors);
 
   const child = validated.value;
+
+  // Birth measurements are optional, but check them before creating anything:
+  // reporting a typo after the child exists would make resubmitting the form
+  // create a second child.
+  const birthValues = validateMeasurement(
+    {
+      measuredOn: child.birthDate,
+      weight: field(formData, "birthWeight"),
+      length: field(formData, "birthLength"),
+      head: field(formData, "birthHead"),
+    },
+    child,
+  );
+  // "No values at all" is fine here — the card is optional. Anything else is a
+  // real mistake and belongs on the field that caused it.
+  if (!birthValues.ok && !birthValues.errors.values) return fail(birthValues.errors);
+
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("create_child", {
     p_name: child.name,
@@ -89,16 +106,7 @@ export async function createChildAction(
   if (error || !data) return fail({ form: AUTH.errors.generic });
   const childId = data as string;
 
-  // Birth measurements are optional, and are saved dated the birth date.
-  const birthValues = validateMeasurement(
-    {
-      measuredOn: child.birthDate,
-      weight: field(formData, "birthWeight"),
-      length: field(formData, "birthLength"),
-      head: field(formData, "birthHead"),
-    },
-    child,
-  );
+  // Saved as a measurement dated the birth date.
   if (birthValues.ok) {
     await supabase.from("measurements").insert({
       child_id: childId,
@@ -107,11 +115,6 @@ export async function createChildAction(
       length_mm: birthValues.value.lengthMm,
       head_mm: birthValues.value.headMm,
     });
-  } else if (!birthValues.errors.values) {
-    // "No values at all" is fine here — the card is optional. Anything else is
-    // a real mistake and the child has already been created, so report it on
-    // the birth-values fields rather than silently dropping the numbers.
-    return fail(birthValues.errors);
   }
 
   revalidatePath("/barn", "layout");
@@ -144,9 +147,9 @@ export async function updateChildAction(
     })
     .eq("id", childId);
   if (error) {
-    // The one update the database refuses outright is moving the birth date
-    // past an existing measurement.
-    return fail({ birthDate: VALIDATION.measurementDateBeforeBirth });
+    // The update the database refuses outright is moving the birth date past an
+    // existing measurement, which would strand it before the child was born.
+    return fail({ birthDate: VALIDATION.birthDateAfterMeasurement });
   }
 
   revalidatePath("/barn", "layout");

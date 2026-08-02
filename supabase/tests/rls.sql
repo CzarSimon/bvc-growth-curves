@@ -92,12 +92,40 @@ select pg_temp.expect_denied(
   'a 45 kg weight');
 
 select pg_temp.expect_denied(
+  'update public.children set birth_date = date ''2025-09-20''',
+  'moving the birth date past an existing measurement');
+
+select pg_temp.expect_denied(
   'select public.create_child(''Tidig'', ''male'', date ''2025-08-10'', 36::smallint, 0::smallint)',
   'a child born at 36 weeks');
 
 select pg_temp.expect_denied(
   'select public.create_child(''Sen'', ''male'', date ''2025-08-10'', 42::smallint, 1::smallint)',
   'a child born at 42+1');
+
+-- ------------------------------------------------------- the app's contract --
+
+-- The exact call and column lists src/lib/db.ts and src/app/actions.ts use.
+-- PostgREST calls functions with named arguments, so a renamed parameter would
+-- only surface at runtime without this.
+insert into t values ('child2', public.create_child(
+  p_name            => 'Vidar',
+  p_sex             => 'male',
+  p_birth_date      => date '2026-02-02',
+  p_gestation_weeks => 40::smallint,
+  p_gestation_days  => 0::smallint
+)::text);
+
+select id, name, sex, birth_date, gestation_weeks, gestation_days
+  from public.children where id = (select value::uuid from t where key = 'child2');
+
+select id, child_id, measured_on, weight_grams, length_mm, head_mm
+  from public.measurements where child_id = (select value::uuid from t where key = 'child');
+
+select pg_temp.expect((select count(*) from public.children) = 2,
+  'create_child with named arguments should have created a second child');
+
+delete from public.children where id = (select value::uuid from t where key = 'child2');
 
 -- ---------------------------------------------------------------- as user B --
 

@@ -105,6 +105,34 @@ create trigger measurements_not_before_birth
   before insert or update on public.measurements
   for each row execute function public.measurement_not_before_birth();
 
+-- The same invariant from the other side: moving a child's birth date forward
+-- must not strand measurements before it.
+create or replace function public.birth_date_not_after_measurements()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  earliest date;
+begin
+  if new.birth_date <= old.birth_date then
+    return new;
+  end if;
+  select min(m.measured_on) into earliest
+  from public.measurements m
+  where m.child_id = new.id;
+  if earliest is not null and new.birth_date > earliest then
+    raise exception 'birth_date % is after the earliest measurement %', new.birth_date, earliest;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger children_birth_date_not_after_measurements
+  before update of birth_date on public.children
+  for each row execute function public.birth_date_not_after_measurements();
+
 -- ------------------------------------------------------------- updated_at --
 
 create or replace function public.touch_updated_at()
