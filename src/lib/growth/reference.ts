@@ -1,15 +1,15 @@
 /**
  * The Swedish 0–24 month reference, loaded as static data at build time.
  *
- * `boys-curves.json` / `girls-curves.json` are the extraction's deliverable and
- * are treated as a validated interface: read `SCHEMA.md` for the contract and
- * `HANDOFF.md` for how they were obtained. They never change at runtime and are
- * deliberately not in the database — a corrected reference is a redeploy, not a
- * migration.
+ * `src/data/{boys,girls}-curves.json` are the extraction's deliverable and are
+ * treated as a validated interface: `SCHEMA.md` is the contract and
+ * `extraction/` is the pipeline that produced them. They never change at
+ * runtime and are deliberately not in the database — a corrected reference is a
+ * redeploy, not a migration.
  */
 
-import boysCurves from "../../../boys-curves.json";
-import girlsCurves from "../../../girls-curves.json";
+import boysCurves from "@/data/boys-curves.json";
+import girlsCurves from "@/data/girls-curves.json";
 import { buildSpline, evaluateSpline, type MonotoneSpline } from "./pchip";
 import {
   MEASURES,

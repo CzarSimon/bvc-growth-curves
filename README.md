@@ -66,8 +66,10 @@ src/lib/growth/     the curve maths — pure, dependency-free, no I/O
 src/lib/            copy, formatting, validation, the reading state machine
 src/components/     the chart and the screens' shared parts
 src/app/            routes and server actions
+src/data/           the reference curves, imported at build time
 supabase/           migrations, RLS tests, local config
-*-curves.json       the reference data, and the Python that produced it
+extraction/         the Python that read the curves off the official charts
+docs/reference/     the official PC PAL 0–2 year charts, as published
 ```
 
 ### The curve maths
@@ -96,18 +98,18 @@ parent sees comes out of it.
 
 ### The reference data
 
-`boys-curves.json` and `girls-curves.json` are read off the official Swedish
-PC PAL 0–2 year charts. `SCHEMA.md` is the data contract and `HANDOFF.md` is
-the record of how the numbers were obtained and what went wrong on the way.
-They are loaded as static data at build time and are deliberately not in the
-database: correcting the reference is a redeploy, not a migration, and no
-derived SDS is ever stored.
+`src/data/boys-curves.json` and `src/data/girls-curves.json` are read off the
+official Swedish PC PAL 0–2 year charts in `docs/reference/`. `SCHEMA.md` is the
+data contract and `extraction/` is the pipeline that produced them. They are
+loaded as static data at build time and are deliberately not in the database:
+correcting the reference is a redeploy, not a migration, and no derived SDS is
+ever stored.
 
 The extraction's own validation must pass before any of this is trustworthy:
 
 ```bash
 pip install pdfplumber numpy
-python verify.py boys-curves.json girls-curves.json
+python extraction/verify.py src/data/boys-curves.json src/data/girls-curves.json
 ```
 
 `src/lib/growth/reference.test.ts` then asserts that the app's interpolation

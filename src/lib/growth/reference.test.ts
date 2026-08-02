@@ -163,7 +163,7 @@ describe("SDS", () => {
       (Math.log10(value) - point.mu) / point.sigma,
       12,
     );
-    // The hand check in verify.py: a 12-month boy at 10.6 kg is about +0.03 SD.
+    // The hand check in extraction/verify.py: a 12-month boy at 10.6 kg is +0.03 SD.
     expect(sdsFromReference(point, 10.6)).toBeCloseTo(0.03, 1);
   });
 

@@ -2,7 +2,7 @@
  * Table 4 of Niklasson & Albertsson-Wikland, BMC Pediatrics 2008;8:8 — the
  * published anchors, at birth and every three months.
  *
- * Transcribed from `TABLE4` in `extract_growth_curves.py`, where it is
+ * Transcribed from `TABLE4` in `extraction/extract_growth_curves.py`, where it is
  * diagnostic-only and never enters the calibration. Weight is in log10(kg),
  * length and head in cm; each entry is `[mean, sd]`.
  *

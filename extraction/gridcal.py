@@ -37,8 +37,10 @@ compare against where the chart actually drew them. See check_3sd(). Table 4
 is reported afterwards as a diagnostic, never used as an input.
 
 Usage
-    python gridcal.py PCPAL-0-2ar-pojke.pdf  --sex male   -o boys-curves.json
-    python gridcal.py PCPAL-0-2ar-flicka.pdf --sex female -o girls-curves.json
+    python extraction/gridcal.py docs/reference/PCPAL-0-2ar-pojke.pdf \
+           --sex male -o src/data/boys-curves.json
+    python extraction/gridcal.py docs/reference/PCPAL-0-2ar-flicka.pdf \
+           --sex female -o src/data/girls-curves.json
 """
 
 import argparse
@@ -67,7 +69,7 @@ MIN_PAIRS = 4            # below this a "fit" is not a fit
 
 # Held-out tolerance against the dashed +/-3SD lines. The correct model lands
 # at 0.25 px, so this leaves 4x headroom while still rejecting real errors.
-# Measured by deliberately breaking the model (see HANDOFF.md):
+# Measured by deliberately breaking the model:
 #   sigma +1%                     0.77 px
 #   sigma +2%                     1.36 px  -> rejected
 #   length/head forced log-normal 3.14 px  -> rejected

@@ -39,7 +39,8 @@ Design notes (learned the hard way from the real file)
 
 Usage
     pip install pdfplumber numpy
-    python gridcal.py PCPAL-0-2ar-pojke.pdf --sex male -o boys-curves.json
+    python extraction/gridcal.py docs/reference/PCPAL-0-2ar-pojke.pdf \
+           --sex male -o src/data/boys-curves.json
 """
 
 import re
@@ -55,7 +56,7 @@ import numpy as np
 #
 # DIAGNOSTIC ONLY. Nothing in the calibration path may read this. The chart is
 # ground truth; this table is an independent reference we report divergence
-# against. It is also an unverified transcription (see HANDOFF.md).
+# against. It is also an unverified transcription (see SCHEMA.md).
 TABLE4 = {
   "male": {
     0:  {"weight": (0.570, 0.053), "length": (51.6, 1.6), "head": (35.8, 1.3)},

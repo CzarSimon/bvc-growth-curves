@@ -19,7 +19,7 @@ Three things were wrong with it, none visible from its own output:
     prediction of 60 cm and 5.0 — the model was absorbing the missing log.
 
 The replacement calibrates from the chart's own gridlines, takes no external
-data, and validates against the held-out dashed +/-3SD lines. See HANDOFF.md.
+data, and validates against the held-out dashed +/-3SD lines. See SCHEMA.md.
 
 ---- original docstring follows ----
 
@@ -45,7 +45,7 @@ is internally inconsistent, the model cannot absorb it and the residual says
 so.
 
 Usage
-    python calibrate.py PCPAL-0-2ar-pojke.pdf --sex male -o boys-curves.json
+    python calibrate.py PCPAL-0-2ar-pojke.pdf --sex male -o boys-curves.json  # historical
 """
 
 import argparse
