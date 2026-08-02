@@ -279,14 +279,24 @@ export function GrowthChart({
               strokeWidth={selected ? 3 : 1.4}
             />
             {onSelect && !mini ? (
-              // The dot is far below a touch target, so the hit area is not the dot.
+              // The dot is far below a touch target, so the hit area is not the
+              // dot. It is focusable so the points are reachable by keyboard.
               <circle
                 cx={x(point.ageMonths)}
                 cy={y(point.value)}
                 r={16}
                 fill="transparent"
-                className="cursor-pointer"
+                role="button"
+                tabIndex={0}
+                aria-label={`${config.label} ${point.value} ${config.unit}, ${point.measuredOn}`}
+                className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 onClick={() => onSelect(point)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelect(point);
+                  }
+                }}
               />
             ) : null}
           </g>

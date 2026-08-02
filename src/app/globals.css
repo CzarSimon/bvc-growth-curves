@@ -62,13 +62,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-input,
-button,
-select,
-textarea {
-  font: inherit;
-  color: inherit;
-}
+/*
+ * Tailwind's preflight already gives form elements `font: inherit` and
+ * `color: inherit`. Repeating it here put an unlayered rule after the utility
+ * layer, so `color: inherit` beat `text-white` and every primary button lost
+ * its label colour.
+ */
 
 ::-webkit-scrollbar {
   width: 8px;

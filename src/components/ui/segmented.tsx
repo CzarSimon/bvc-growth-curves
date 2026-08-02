@@ -1,17 +1,21 @@
 "use client";
 
 import * as React from "react";
-import * as TabsPrimitive from "@radix-ui/react-tabs";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import { cn } from "@/lib/cn";
 
-/** The measure switcher: a segmented control on a sunken track. */
+/**
+ * The measure switcher and the zoom range are both single-choice controls over
+ * the same chart, not tab panels — there is one region and it changes. Radix's
+ * ToggleGroup gives that the right semantics and roving focus; Tabs would
+ * promise a tabpanel that does not exist.
+ */
 export function Segmented({
   className,
   ...props
-}: React.ComponentProps<typeof TabsPrimitive.List>) {
+}: React.ComponentProps<typeof ToggleGroupPrimitive.Root>) {
   return (
-    <TabsPrimitive.List
+    <ToggleGroupPrimitive.Root
       className={cn(
         "flex gap-1.5 rounded-[12px] border border-border bg-surface-muted p-1",
         className,
@@ -24,12 +28,12 @@ export function Segmented({
 export function SegmentedItem({
   className,
   ...props
-}: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+}: React.ComponentProps<typeof ToggleGroupPrimitive.Item>) {
   return (
-    <TabsPrimitive.Trigger
+    <ToggleGroupPrimitive.Item
       className={cn(
         "min-h-11 flex-1 cursor-pointer rounded-[9px] px-2.5 text-sm font-semibold text-ink-muted transition-colors",
-        "data-[state=active]:bg-surface data-[state=active]:text-ink data-[state=active]:shadow-[0_1px_3px_rgba(28,26,23,0.12)]",
+        "data-[state=on]:bg-surface data-[state=on]:text-ink data-[state=on]:shadow-[0_1px_3px_rgba(28,26,23,0.12)]",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
         className,
       )}
@@ -37,9 +41,6 @@ export function SegmentedItem({
     />
   );
 }
-
-export const SegmentedRoot = TabsPrimitive.Root;
-export const SegmentedContent = TabsPrimitive.Content;
 
 /** The zoom range pills. Single-select, always one selected. */
 export function PillGroup({

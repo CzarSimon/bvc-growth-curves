@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { ChartLegend, GrowthChart, type ZoomRange } from "./growth-chart";
-import { Pill, PillGroup, Segmented, SegmentedItem, SegmentedRoot } from "./ui/segmented";
+import { Pill, PillGroup, Segmented, SegmentedItem } from "./ui/segmented";
 import { CHART, OUT_OF_RANGE, sdPhrase } from "@/lib/copy";
 import { formatAge, formatDate, formatNumber } from "@/lib/format";
 import { MEASURE_CONFIG, MEASURE_ORDER } from "@/lib/measures";
@@ -74,8 +74,16 @@ export function ChartScreen({
         <ZoomPills zoom={zoom} onChange={setZoom} />
       </div>
 
-      <SegmentedRoot value={measure} onValueChange={(v) => changeMeasure(v as Measure)}>
-        <Segmented className="lg:hidden">
+      <div>
+        <Segmented
+          type="single"
+          value={measure}
+          onValueChange={(value) => {
+            if (value) changeMeasure(value as Measure);
+          }}
+          aria-label="Välj mått"
+          className="lg:hidden"
+        >
           {MEASURE_ORDER.map((key) => (
             <SegmentedItem key={key} value={key}>
               {MEASURE_CONFIG[key].label}
@@ -89,7 +97,15 @@ export function ChartScreen({
 
         <div className="flex flex-col gap-3.5 pt-3.5 lg:grid lg:grid-cols-[1.6fr_1fr] lg:items-start lg:gap-4 lg:pt-0">
           <div className="flex flex-col gap-2.5 rounded-[14px] border border-border bg-surface px-2.5 pt-3 pb-2.5 lg:p-4">
-            <Segmented className="hidden self-start lg:flex">
+            <Segmented
+              type="single"
+              value={measure}
+              onValueChange={(value) => {
+                if (value) changeMeasure(value as Measure);
+              }}
+              aria-label="Välj mått"
+              className="hidden self-start lg:flex"
+            >
               {MEASURE_ORDER.map((key) => (
                 <SegmentedItem key={key} value={key} className="flex-none px-4">
                   {MEASURE_CONFIG[key].label}
@@ -160,7 +176,7 @@ export function ChartScreen({
             <p className="prose-copy m-0 text-[13px]/[1.55] text-ink-muted">{data.footnote}</p>
           </div>
         </div>
-      </SegmentedRoot>
+      </div>
     </div>
   );
 }
@@ -177,6 +193,7 @@ function ZoomPills({
       <span className="text-[13px] text-ink-muted">{CHART.show}</span>
       <PillGroup
         type="single"
+        aria-label={CHART.show}
         value={String(zoom)}
         onValueChange={(value) => {
           if (value) onChange(Number(value) as ZoomRange);
