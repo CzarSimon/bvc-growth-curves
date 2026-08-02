@@ -4,21 +4,35 @@ import * as React from "react";
 import { scaleLinear, scaleLog } from "d3-scale";
 import { CHART } from "@/lib/copy";
 import { MEASURE_CONFIG } from "@/lib/measures";
-import { sampleAges, sampleSdCurve, type Measure, type Sex } from "@/lib/growth";
+import { AGE_MAX_MONTHS, sampleAges, sampleSdCurve, type Measure, type Sex } from "@/lib/growth";
 import type { CurvePoint } from "@/lib/child-data";
 
 export type ZoomRange = 3 | 12 | 24;
 
 /**
  * The official paper chart gives roughly a third of its width to the first
- * three months, which is clinically right and has to be preserved. The scale is
- * piecewise-linear in three segments with fixed width fractions; zooming
- * re-normalises within the same function, so the compression is identical at
- * every zoom level.
+ * three months, which is clinically right and has to be preserved. A
+ * piecewise-linear scale does that, but its slope jumps at every segment
+ * border, which puts a visible kink into all seven reference curves and into
+ * the child's own line at 3 and 12 months — a break the printed sheet does not
+ * have. So the compression is continuous instead.
+ *
+ * k = 2.5 reproduces the printed sheet's proportions (≈0.33 / 0.41 / 0.26 of
+ * the width for 0–3 / 3–12 / 12–24 months) while being C1-continuous
+ * everywhere, so the curves keep their slope end to end. Zooming re-normalises
+ * within the same function, so the compression is identical at every zoom
+ * level.
+ *
+ * Exported for the tests that assert the continuity and the proportions.
  */
-const AGE_BREAKS = [0, 3, 12, 24];
-const AGE_FRACTIONS = [0, 0.34, 0.72, 1];
-const normalisedAge = scaleLinear().domain(AGE_BREAKS).range(AGE_FRACTIONS).clamp(true);
+export const AGE_COMPRESSION_K = 2.5;
+
+export function normalisedAge(months: number): number {
+  return (
+    Math.log(1 + Math.max(0, months) / AGE_COMPRESSION_K) /
+    Math.log(1 + AGE_MAX_MONTHS / AGE_COMPRESSION_K)
+  );
+}
 
 const SD_LEVELS = [-3, -2, -1, 0, 1, 2, 3] as const;
 
