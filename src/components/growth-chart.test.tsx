@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { GrowthChart } from "./growth-chart";
+import { GrowthChart, normalisedAge } from "./growth-chart";
 import type { CurvePoint } from "@/lib/child-data";
 import type { Measure } from "@/lib/growth";
 
@@ -85,6 +85,76 @@ describe("the growth chart", () => {
     const cy = Number(/circle cx="[\d.]+" cy="([\d.-]+)"/.exec(markup)?.[1]);
     expect(cy).toBeGreaterThan(0);
     expect(cy).toBeLessThan(300);
+  });
+});
+
+describe("the compressed age axis", () => {
+  it("spans the full width from birth to 24 months", () => {
+    expect(normalisedAge(0)).toBe(0);
+    expect(normalisedAge(24)).toBeCloseTo(1, 12);
+  });
+
+  it("keeps the printed sheet's proportions for 0–3 / 3–12 / 12–24 months", () => {
+    const first = normalisedAge(3);
+    const second = normalisedAge(12) - normalisedAge(3);
+    const third = normalisedAge(24) - normalisedAge(12);
+    expect(first).toBeCloseTo(0.33, 2);
+    expect(second).toBeCloseTo(0.41, 2);
+    expect(third).toBeCloseTo(0.26, 2);
+  });
+
+  it("is strictly increasing, so ages never fold back on each other", () => {
+    for (let m = 0; m < 24; m += 0.05) {
+      expect(normalisedAge(m + 0.05)).toBeGreaterThan(normalisedAge(m));
+    }
+  });
+
+  it("has no slope break at the old segment borders", () => {
+    // The bug: a piecewise-linear scale changed slope abruptly at 3 and 12
+    // months, kinking every curve there. The slope ratio across a breakpoint
+    // must be as smooth as it is anywhere else in the same neighbourhood.
+    // The old piecewise scale changed slope by 63 % at 3 months and 37 % at 12;
+    // a continuous compression changes it only by its own gentle curvature.
+    const h = 0.01;
+    const slope = (m: number) => (normalisedAge(m + h) - normalisedAge(m - h)) / (2 * h);
+    for (const breakpoint of [3, 12]) {
+      const ratio = slope(breakpoint + h) / slope(breakpoint - h);
+      expect(Math.abs(ratio - 1), `slope ratio at ${breakpoint} months`).toBeLessThan(0.01);
+    }
+  });
+
+  it("draws a constant-SD curve without a kink at 3 or 12 months", () => {
+    // End to end: the mean curve is smooth in age, so its rendered polyline
+    // must not change direction sharply at the old borders either.
+    const markup = renderToStaticMarkup(
+      <GrowthChart
+        sex="female"
+        measure="weight"
+        points={[]}
+        zoom={24}
+        width={700}
+        height={400}
+        childName="Elsa"
+      />,
+    );
+    // The mean curve is the only path drawn at stroke-width 1.7.
+    const mean = /<path d="([^"]+)"[^>]*stroke-width="1\.7"/.exec(markup)?.[1];
+    expect(mean).toBeDefined();
+    const vertices = [...mean!.matchAll(/[ML]([\d.-]+) ([\d.-]+)/g)].map((m) => ({
+      x: Number(m[1]),
+      y: Number(m[2]),
+    }));
+    expect(vertices.length).toBeGreaterThan(50);
+
+    const angles = vertices.slice(1).map((v, i) => {
+      const prev = vertices[i];
+      return Math.atan2(v.y - prev.y, v.x - prev.x);
+    });
+    const turns = angles.slice(1).map((a, i) => Math.abs(a - angles[i]));
+    // No single joint may turn much more than the sharpest turn elsewhere on
+    // the curve; a segment border used to stand out by an order of magnitude.
+    const median = [...turns].sort((a, b) => a - b)[Math.floor(turns.length / 2)];
+    expect(Math.max(...turns)).toBeLessThan(Math.max(median * 8, 0.05));
   });
 });
 
