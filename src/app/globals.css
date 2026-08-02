@@ -1,26 +1,89 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Kurvan design tokens. Warm neutrals with one teal accent; no colour carries
+ * meaning on its own anywhere in the product, so there is no semantic
+ * success/warning/danger scale to define.
+ */
+@theme {
+  --color-bg: #faf8f5;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f5f2ec;
+  --color-surface-muted: #f1ede6;
+
+  --color-border: #e6e1da;
+  --color-border-strong: #c9c1b4;
+  --color-border-input: #d8d2c8;
+  --color-hairline: #efebe4;
+  --color-hairline-soft: #f2eee7;
+
+  --color-ink: #1c1a17;
+  --color-ink-secondary: #3d3830;
+  --color-ink-muted: #6e675e;
+
+  --color-accent: #1c5c66;
+  --color-accent-hover: #164a52;
+  --color-accent-ink: #123f46;
+  --color-accent-surface: #e9f1f1;
+  --color-accent-border: #cfe0e1;
+  --color-accent-text: #1c3a3e;
+  --color-accent-text-soft: #2b4e52;
+
+  --color-chart-band-3: #f4f1eb;
+  --color-chart-band-2: #ebe6dc;
+  --color-chart-band-1: #dfd8cb;
+  --color-chart-mean: #7e7568;
+  --color-chart-sd: #a79e92;
+
+  --color-error: #8a2b12;
+
+  --font-sans: var(--font-public-sans), system-ui, sans-serif;
+  --font-serif: var(--font-source-serif), Georgia, serif;
+
+  --radius-card: 14px;
+  --radius-control: 10px;
+  --radius-inner: 12px;
+  --radius-sheet: 20px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  min-height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+input,
+button,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #dcd6cc;
+  border-radius: 8px;
+}
+
+/* Prose reads better ragged-even; every number is tabular. */
+@utility prose-copy {
+  text-wrap: pretty;
+}
+
+@utility nums {
+  font-variant-numeric: tabular-nums;
 }

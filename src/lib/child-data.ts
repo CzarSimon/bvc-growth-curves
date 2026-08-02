@@ -1,0 +1,133 @@
+/**
+ * The app's view of a child and its measurements, and how those become points
+ * on a curve. Everything numeric here delegates to `lib/growth`.
+ */
+
+import {
+  correctedAgeMonths,
+  daysBetween,
+  plotMeasurement,
+  type ChildRef,
+  type Measure,
+  type OutOfRangeReason,
+  type Sex,
+} from "./growth";
+
+export type Child = {
+  id: string;
+  name: string;
+  sex: Sex;
+  /** ISO calendar day. */
+  birthDate: string;
+  gestationWeeks: number;
+  gestationDays: number;
+};
+
+export type Measurement = {
+  id: string;
+  childId: string;
+  /** The day the child was measured, not the day the row was written. */
+  measuredOn: string;
+  weightKg: number | null;
+  lengthCm: number | null;
+  headCm: number | null;
+};
+
+export type CurvePoint = {
+  measurementId: string;
+  measuredOn: string;
+  /** Corrected age in months from term. */
+  ageMonths: number;
+  /** kg for weight, cm for length and head. */
+  value: number;
+  sds: number;
+};
+
+export type UnplottablePoint = {
+  measurementId: string;
+  measuredOn: string;
+  value: number;
+  reason: OutOfRangeReason;
+};
+
+export function childRef(child: Child): ChildRef {
+  return {
+    sex: child.sex,
+    birthDate: child.birthDate,
+    gestationWeeks: child.gestationWeeks,
+    gestationDays: child.gestationDays,
+  };
+}
+
+export function measurementValue(measurement: Measurement, measure: Measure): number | null {
+  switch (measure) {
+    case "weight":
+      return measurement.weightKg;
+    case "length":
+      return measurement.lengthCm;
+    case "head":
+      return measurement.headCm;
+  }
+}
+
+export function sortByDate(measurements: Measurement[]): Measurement[] {
+  return [...measurements].sort((a, b) =>
+    a.measuredOn === b.measuredOn ? a.id.localeCompare(b.id) : a.measuredOn < b.measuredOn ? -1 : 1,
+  );
+}
+
+export type MeasureSeries = {
+  points: CurvePoint[];
+  /** Values that exist but cannot be placed on the reference. */
+  unplottable: UnplottablePoint[];
+};
+
+/** Every recorded value for one measure, split into what can be plotted and what cannot. */
+export function seriesFor(
+  child: Child,
+  measurements: Measurement[],
+  measure: Measure,
+): MeasureSeries {
+  const ref = childRef(child);
+  const points: CurvePoint[] = [];
+  const unplottable: UnplottablePoint[] = [];
+
+  for (const measurement of sortByDate(measurements)) {
+    const value = measurementValue(measurement, measure);
+    if (value === null) continue;
+    const plotted = plotMeasurement(ref, measure, measurement.measuredOn, value);
+    if (plotted.ok) {
+      points.push({
+        measurementId: measurement.id,
+        measuredOn: measurement.measuredOn,
+        ageMonths: plotted.value.ageMonths,
+        value: plotted.value.value,
+        sds: plotted.value.sds,
+      });
+    } else {
+      unplottable.push({
+        measurementId: measurement.id,
+        measuredOn: measurement.measuredOn,
+        value,
+        reason: plotted.reason,
+      });
+    }
+  }
+
+  return { points, unplottable };
+}
+
+/** Chronological days lived on a given date. Negative before birth. */
+export function ageDays(child: Child, onDate: string): number {
+  return daysBetween(child.birthDate, onDate);
+}
+
+/** Corrected age for a date, or the reason it cannot be placed. */
+export function correctedAge(child: Child, onDate: string) {
+  return correctedAgeMonths(childRef(child), onDate);
+}
+
+export function latestMeasurement(measurements: Measurement[]): Measurement | null {
+  const sorted = sortByDate(measurements);
+  return sorted.length ? sorted[sorted.length - 1] : null;
+}
