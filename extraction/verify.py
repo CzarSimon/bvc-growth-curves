@@ -8,7 +8,7 @@ the extraction: that the file is internally consistent, that the published
 z-score formula actually inverts the published curves, and that a couple of
 hand-computable cases come out right.
 
-    python verify.py boys-curves.json girls-curves.json
+    python extraction/verify.py src/data/boys-curves.json src/data/girls-curves.json
 """
 
 import json
@@ -20,7 +20,7 @@ SD_KEYS = ["-3SD", "-2SD", "-1SD", "median", "+1SD", "+2SD", "+3SD"]
 LEVELS = [-3, -2, -1, 0, 1, 2, 3]
 
 # Chart medians at 24 months, read off the calibrated curves. Independent of
-# Table 4 (the chart and the table disagree early on; see HANDOFF.md).
+# Table 4 (the chart and the table disagree early on; see SCHEMA.md).
 SPOT_24MO = {
     "male":   {"weight": 13.36, "length": 88.08, "head": 49.96},
     "female": {"weight": 12.77, "length": 87.09, "head": 48.70},
@@ -65,7 +65,7 @@ def verify(path):
         check(abs(ages[-1] - 24) < 0.15, f"{tag}: does not end at 24mo "
                                          f"({ages[-1]:.2f})")
         # The chart samples every 1.2 months (24/20), uniform in AGE. An
-        # earlier note in HANDOFF.md claimed sub-month spacing early on
+        # an earlier note claimed sub-month spacing early on
         # (0, 0.61, 1.24, ...); that is what you get if you assume the
         # vertices are evenly spaced in PIXELS. They are not — the x gaps
         # shrink from 37.0 to 10.8 px, exactly tracking the compressed age
@@ -136,7 +136,7 @@ def hand_check(boys):
 
 def main():
     docs = {}
-    for path in sys.argv[1:] or ["boys-curves.json", "girls-curves.json"]:
+    for path in sys.argv[1:] or ["src/data/boys-curves.json", "src/data/girls-curves.json"]:
         d = verify(path)
         docs[d["sex"]] = d
     if "male" in docs:

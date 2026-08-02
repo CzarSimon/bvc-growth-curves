@@ -1,7 +1,7 @@
-# `boys-curves.json` / `girls-curves.json` — data contract
+# `src/data/{boys,girls}-curves.json` — data contract
 
 Swedish 0–2 year growth reference curves, extracted from the official BVC
-charts (`PCPAL-0-2ar-{pojke,flicka}.pdf`). Everything here is read off the
+charts in `docs/reference/`. Everything here is read off the
 chart's own vector paths and calibrated against the chart's own gridlines.
 
 If you are an agent building the plotting app: **this file is the contract.
@@ -122,8 +122,12 @@ these files deliberately reproduce it. The table is a separate publication that
 disagrees, mostly at birth and 3 months (weight up to ~5–6%, length ~1.5% at
 birth, everything ≤1.4% from 9 months on). The chart cites the 1999/2002
 references, not the 2008 paper, and the 2008 paper's headline change was birth
-size — so the divergence is probably a version difference. That is unconfirmed;
-see `HANDOFF.md`.
+size — so the divergence is probably a version difference. That is unconfirmed.
+
+Two things would close it: verifying the Table 4 constants against the paper
+(doi:10.1186/1471-2431-8-8, CC BY) and fixing `TABLE4` in
+`extraction/extract_growth_curves.py` if they are wrong — it is diagnostic-only,
+so that changes no output — or asking the authors for the fitted coefficients.
 
 The field is recorded so the disagreement stays visible. Do not use it to adjust
 the curves.
@@ -142,9 +146,11 @@ the curves.
 
 ```bash
 pip install pdfplumber numpy
-python gridcal.py PCPAL-0-2ar-pojke.pdf  --sex male   -o boys-curves.json
-python gridcal.py PCPAL-0-2ar-flicka.pdf --sex female -o girls-curves.json
-python verify.py boys-curves.json girls-curves.json
+python extraction/gridcal.py docs/reference/PCPAL-0-2ar-pojke.pdf \
+       --sex male   -o src/data/boys-curves.json
+python extraction/gridcal.py docs/reference/PCPAL-0-2ar-flicka.pdf \
+       --sex female -o src/data/girls-curves.json
+python extraction/verify.py src/data/boys-curves.json src/data/girls-curves.json
 ```
 
 `gridcal.py` aborts rather than emitting anything if the calibration or the
