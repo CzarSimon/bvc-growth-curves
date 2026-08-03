@@ -66,7 +66,8 @@ clicked there is lost the next time someone pushes.
 
 | | |
 |---|---|
-| Project ref | _fill in once created_ |
+| Project ref | `iilroqjhyozucgqniaoj` |
+| API URL | `https://iilroqjhyozucgqniaoj.supabase.co` — this is `NEXT_PUBLIC_SUPABASE_URL`, not `site_url` |
 | Region | `eu-north-1` (Stockholm) — Swedish users, health data about children, keep it in the EU |
 | Postgres | 17, matching `[db] major_version` above |
 | Vercel functions | `arn1` (Stockholm), so server components sit next to the database |
