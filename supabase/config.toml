@@ -444,14 +444,15 @@ project_id = "iilroqjhyozucgqniaoj"
 # (https://iilroqjhyozucgqniaoj.supabase.co) — that one goes to Vercel as
 # NEXT_PUBLIC_SUPABASE_URL.
 #
-# UNVERIFIED until the Vercel project exists. Vercel names the project after the
-# repo, so this is the expected domain rather than a confirmed one; check it
-# against the real deployment before running `config push`.
-site_url = "https://bvc-growth-curves.vercel.app"
+# The `-pink` suffix is Vercel's doing: plain bvc-growth-curves.vercel.app was
+# already taken globally, so it generated a distinct name. Read off the real
+# deployment, not guessed.
+site_url = "https://bvc-growth-curves-pink.vercel.app"
 additional_redirect_urls = [
-  "https://bvc-growth-curves.vercel.app/**",
-  # Vercel preview deployments get a generated subdomain per branch. Drop this
-  # line if you would rather previews could not sign in at all.
+  "https://bvc-growth-curves-pink.vercel.app/**",
+  # Preview deployments are bvc-growth-curves-git-<branch>-<scope>.vercel.app
+  # and bvc-growth-curves-<hash>-<scope>.vercel.app, so one wildcard covers
+  # both. Drop this line if you would rather previews could not sign in at all.
   "https://bvc-growth-curves-*.vercel.app/**",
 ]
 enable_signup = true
