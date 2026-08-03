@@ -412,3 +412,56 @@ enabled = true
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# ---------------------------------------------------------------- production --
+#
+# Everything above configures the local stack that `supabase start` runs. This
+# block configures the hosted project, and is applied with:
+#
+#   supabase link --project-ref <ref>
+#   supabase config push
+#
+# It exists so the hosted Auth settings are a reviewed file rather than a
+# checkbox someone remembers ticking. If you change one of these in the
+# dashboard, change it here too: there is no `config pull`, so the dashboard is
+# not recoverable into this file.
+#
+# Only the settings that differ when hosted are listed. Everything else is
+# inherited from the root config above.
+#
+# COMMENTED OUT UNTIL THE PROJECT EXISTS. `project_id` must be a real 20-character
+# project ref; the CLI rejects anything else when it loads this file, which would
+# break `supabase start` for every local checkout. Uncomment the block and fill
+# in the two TODOs once you have the ref and the deployed URL.
+#
+# Get the ref wrong and `config push` finds no matching remote, falls back to the
+# root config above, and cheerfully sets your production site_url to
+# http://localhost:3000. Check it before the first push.
+#
+# [remotes.prod]
+# # The hosted project's reference, from the dashboard URL or `supabase projects list`.
+# # This is what `config push` matches against the linked project.
+# project_id = "TODO-project-ref"
+#
+# [remotes.prod.auth]
+# # The deployed origin. Used to build links in auth emails and as the redirect
+# # allow-list root. Must be the real production URL, not a preview one.
+# site_url = "https://TODO.vercel.app"
+# additional_redirect_urls = [
+#   "https://TODO.vercel.app/**",
+#   # Vercel preview deployments get a generated subdomain per branch. Drop this
+#   # line if you would rather previews could not sign in at all.
+#   "https://TODO-*.vercel.app/**",
+# ]
+# enable_signup = true
+# # The app refuses anything shorter in signUpAction; make the server agree rather
+# # than leaving a weaker password accepted by one layer and rejected by the other.
+# minimum_password_length = 8
+#
+# [remotes.prod.auth.email]
+# # Deliberately off, and load-bearing: signUpAction assumes signUp() returns a
+# # session and redirects to /barn. With confirmations on, no session comes back,
+# # the proxy sees an anonymous visitor and bounces the new user to /logga-in with
+# # nothing explaining why. Turning this on is a code change, not a config change
+# # — it needs an /auth/callback route and a "check your inbox" state first.
+# enable_confirmations = false
