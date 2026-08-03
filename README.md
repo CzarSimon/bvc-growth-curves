@@ -54,10 +54,51 @@ the environment, defaulting to Supabase's local Postgres port.
 ### Deploying
 
 The app is a stock Next.js App Router project and deploys to Vercel unchanged.
-Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to a hosted
-Supabase project, and apply `supabase/migrations/` to it with
-`npx supabase db push`. The reference data is compiled into the build; there is
-nothing to seed.
+The reference data is compiled into the build; there is nothing to seed.
+
+Settings are files, not dashboard state. The schema lives in
+`supabase/migrations/`, the hosted Auth settings in the `[remotes.prod]` block
+at the bottom of `supabase/config.toml`. The dashboard is where you read the
+result, not where you make the change — there is no `config pull`, so anything
+clicked there is lost the next time someone pushes.
+
+**The hosted project**, recorded here because nothing else captures it:
+
+| | |
+|---|---|
+| Project ref | _fill in once created_ |
+| Region | `eu-north-1` (Stockholm) — Swedish users, health data about children, keep it in the EU |
+| Postgres | 17, matching `[db] major_version` above |
+| Vercel functions | `arn1` (Stockholm), so server components sit next to the database |
+
+**First deploy**, once the project exists in the Supabase dashboard:
+
+```bash
+npx supabase login
+npx supabase link --project-ref <ref>
+npx supabase db push        # schema, RLS, the create_child RPC
+npx supabase config push    # Auth settings from [remotes.prod]
+```
+
+Uncomment `[remotes.prod]` in `supabase/config.toml` and fill in its two TODOs
+before that last command. A `project_id` that does not match the linked project
+makes `config push` fall back to the root config and set your production
+`site_url` to `http://localhost:3000`.
+
+On Vercel, set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+**before the first build** — `src/lib/supabase/middleware.ts` reads them as
+literals, so they are inlined at build time rather than read at runtime. No
+service-role key is needed anywhere: the app runs on the anon key, RLS and
+session cookies alone.
+
+Email confirmation is off in production as well as locally, and the sign-up flow
+depends on it: `signUpAction` assumes `signUp()` returns a session. Turning it
+on is a code change — an `/auth/callback` route and a "check your inbox" state —
+not a checkbox. It also needs custom SMTP; Supabase's built-in mailer is rate
+limited to a few messages an hour and is not meant for production.
+
+Never run `supabase/tests/rls.sql` against the hosted database. It writes
+directly to `auth.users` and is local-only.
 
 ## How it is put together
 
