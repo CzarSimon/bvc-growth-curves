@@ -1,0 +1,15 @@
+# Nothing here is read by `next build`, so keep it out of the deployment upload.
+
+# The offline Python pipeline that produced src/data/*-curves.json. It runs on a
+# developer's machine, never in the build. The JSON it emits lives in src/ and
+# is imported by src/lib/growth/reference.ts, so that still ships.
+extraction/
+
+# Source PDFs for the curves, ~1 MB of provenance we keep in git but never serve.
+docs/
+
+# Migrations and RLS tests reach the database through the Supabase CLI, not
+# through Vercel.
+supabase/
+
+*.md
