@@ -9,9 +9,25 @@ import { createServerClient } from "@supabase/ssr";
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  // Spelled out rather than read through a helper taking a name: Next inlines
+  // literal `process.env.NEXT_PUBLIC_*` references into this bundle at build
+  // time, and a computed lookup would come back undefined once deployed.
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return response;
+  if (!url || !key) {
+    // With no Supabase to ask, the gate below cannot tell a signed-in visitor
+    // from anyone else and waves everybody through. A half-configured checkout
+    // can live with that; a deployment serving other families' measurements
+    // cannot, so refuse loudly instead of quietly unlocking /barn.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are not set. " +
+          "Without them nobody can be authenticated and every child's data would " +
+          "be readable. See README.md.",
+      );
+    }
+    return response;
+  }
 
   const supabase = createServerClient(url, key, {
     cookies: {
