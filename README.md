@@ -12,7 +12,7 @@ every question to BVC.
 
 Everything runs on your machine. No cloud account is needed.
 
-Requirements: Node 20+, Docker (for local Supabase), and the
+Requirements: Node 22 (see `.nvmrc`), Docker (for local Supabase), and the
 [Supabase CLI](https://supabase.com/docs/guides/local-development) — or use
 `npx supabase` as below, which needs no global install.
 
@@ -66,6 +66,7 @@ clicked there is lost the next time someone pushes.
 
 | | |
 |---|---|
+| App URL | <https://bvc-growth-curves-pink.vercel.app> — Vercel suffixed the name, the plain one was taken. This is Supabase's `site_url` |
 | Project ref | `iilroqjhyozucgqniaoj` |
 | API URL | `https://iilroqjhyozucgqniaoj.supabase.co` — this is `NEXT_PUBLIC_SUPABASE_URL`, not `site_url` |
 | Region | `eu-north-1` (Stockholm) — Swedish users, health data about children, keep it in the EU |
