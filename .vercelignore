@@ -1,15 +1,20 @@
 # Nothing here is read by `next build`, so keep it out of the deployment upload.
+#
+# Every directory pattern is anchored with a leading slash, and must stay that
+# way. These are gitignore-style patterns, so an unanchored `supabase/` matches
+# a directory of that name at ANY depth — which silently deleted
+# src/lib/supabase/ from the build and broke every import of the server client.
 
 # The offline Python pipeline that produced src/data/*-curves.json. It runs on a
 # developer's machine, never in the build. The JSON it emits lives in src/ and
 # is imported by src/lib/growth/reference.ts, so that still ships.
-extraction/
+/extraction/
 
 # Source PDFs for the curves, ~1 MB of provenance we keep in git but never serve.
-docs/
+/docs/
 
 # Migrations and RLS tests reach the database through the Supabase CLI, not
-# through Vercel.
-supabase/
+# through Vercel. NOT src/lib/supabase/, which is application code.
+/supabase/
 
 *.md
