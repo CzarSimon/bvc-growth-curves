@@ -1,21 +1,43 @@
 import type { Metadata, Viewport } from "next";
-import { Public_Sans, Source_Serif_4 } from "next/font/google";
+import localFont from "next/font/local";
 import { APP_NAME, START } from "@/lib/copy";
 import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
-const publicSans = Public_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+/*
+ * The fonts are self-hosted from `./fonts`, not fetched through
+ * `next/font/google`.
+ *
+ * `next/font/google` resolves the woff2 URLs from Google's CSS at build time
+ * and downloads them during the build. Google rotates those filenames without
+ * warning — it renamed Source Serif 4's from `vEFv2_…` to `vEFF2_…` — and a
+ * build that restores a Turbopack cache holding the old URLs then downloads
+ * 404s and fails to compile. That took a production deploy down. Nothing about
+ * the build should depend on a third-party CDN keeping a filename stable.
+ *
+ * Both files are the `latin` subset only, which is what `subsets: ["latin"]`
+ * shipped before this: it covers åäö and the punctuation the copy uses. Both
+ * are variable fonts, so one file per family covers every weight used — the
+ * ranges below are the fonts' own `wght` axes, and CSS `font-weight` picks the
+ * instance. To update them, re-download the `latin` woff2 from Google's CSS
+ * API. Both are SIL Open Font License 1.1; see `fonts/README.md`.
+ */
+const publicSans = localFont({
+  src: "./fonts/public-sans-latin.woff2",
+  weight: "100 900",
+  style: "normal",
   variable: "--font-public-sans",
   display: "swap",
+  adjustFontFallback: "Arial",
 });
 
-const sourceSerif = Source_Serif_4({
-  subsets: ["latin"],
-  weight: ["400", "600"],
+const sourceSerif = localFont({
+  src: "./fonts/source-serif-4-latin.woff2",
+  weight: "200 900",
+  style: "normal",
   variable: "--font-source-serif",
   display: "swap",
+  adjustFontFallback: "Times New Roman",
 });
 
 const description =
