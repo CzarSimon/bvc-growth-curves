@@ -18,6 +18,7 @@ export default async function HistoryPage({
   if (!child) notFound();
   const measurements = sortByDate(await listMeasurements(childId)).reverse();
   const history = `/barn/${child.id}/matningar`;
+  const addHref = `${history}/ny?retur=matningar`;
 
   return (
     <div className="mx-auto flex w-full max-w-[860px] flex-col gap-3.5 px-4 py-4 lg:gap-4 lg:px-8 lg:py-7">
@@ -29,19 +30,29 @@ export default async function HistoryPage({
       </Link>
       <div className="flex items-end justify-between gap-4">
         <h1 className="font-serif text-2xl font-semibold lg:text-[30px]">{HISTORY.title}</h1>
-        <Link
-          href={`/barn/${child.id}/andra`}
-          className="hidden min-h-11 items-center text-sm font-semibold text-accent lg:flex"
-        >
-          {CHILD_FORM.editTitle}
-        </Link>
+        {/* On mobile the app shell already carries the add button; on desktop it
+            belongs here, next to the list it adds to. */}
+        <div className="hidden items-center gap-4 lg:flex">
+          <Link
+            href={`/barn/${child.id}/andra`}
+            className="flex min-h-11 items-center text-sm font-semibold text-accent"
+          >
+            {CHILD_FORM.editTitle}
+          </Link>
+          <Link
+            href={addHref}
+            className="flex min-h-12 items-center rounded-[10px] bg-accent px-5 text-base font-semibold text-white"
+          >
+            {HISTORY.add}
+          </Link>
+        </div>
       </div>
 
       {measurements.length === 0 ? (
         <div className="flex flex-col items-start gap-3 rounded-[14px] border border-dashed border-border-strong bg-surface p-5.5">
           <p className="prose-copy m-0 text-base/[1.5] text-ink-secondary">{HISTORY.empty}</p>
           <Link
-            href={`${history}/ny`}
+            href={addHref}
             className="flex min-h-12 items-center rounded-[10px] bg-accent px-4.5 text-base font-semibold text-white"
           >
             {HISTORY.add}
