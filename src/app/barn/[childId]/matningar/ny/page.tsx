@@ -8,18 +8,25 @@ import { formatAge, todayIso } from "@/lib/format";
 
 export default async function NewMeasurementPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ childId: string }>;
+  searchParams: Promise<{ retur?: string }>;
 }) {
   const { childId } = await params;
+  const { retur } = await searchParams;
   const child = await getChild(childId);
   if (!child) notFound();
   const today = todayIso();
+  // Adding from the history page should land back on it, so a parent filling in
+  // several measurements from the BVC card stays where the list is.
+  const back =
+    retur === "matningar" ? `/barn/${child.id}/matningar` : `/barn/${child.id}`;
 
   return (
     <div className="mx-auto flex w-full max-w-[640px] flex-col gap-4.5 px-4 py-4 pb-10">
       <Link
-        href={`/barn/${child.id}`}
+        href={back}
         className="flex min-h-11 items-center self-start text-[15px] font-semibold text-accent"
       >
         ← {MEASUREMENT_FORM.cancel}
@@ -32,8 +39,8 @@ export default async function NewMeasurementPage({
         childName={child.name}
         childAgeText={formatAge(ageDays(child, today))}
         today={today}
-        returnTo={`/barn/${child.id}`}
-        backHref={`/barn/${child.id}`}
+        returnTo={back}
+        backHref={back}
       />
     </div>
   );

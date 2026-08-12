@@ -25,8 +25,10 @@ export function AppShell({
   const pathname = usePathname();
   const base = `/barn/${child.id}`;
   // The primary action rides on the screens a parent reads, not on the forms.
-  const showAddButton =
-    pathname === base || pathname === `${base}/kurvor` || pathname === `${base}/matningar`;
+  const onHistory = pathname === `${base}/matningar`;
+  const showAddButton = pathname === base || pathname === `${base}/kurvor` || onHistory;
+  // From the history list, saving returns to the list rather than the overview.
+  const addHref = `${base}/matningar/ny${onHistory ? "?retur=matningar" : ""}`;
   const navItems = [
     { href: base, label: NAV.overview },
     { href: `${base}/kurvor`, label: NAV.charts },
@@ -92,7 +94,7 @@ export function AppShell({
       {showAddButton ? (
         <div className="sticky bottom-0 z-30 flex bg-gradient-to-t from-bg from-62% to-transparent px-4 pt-3 pb-5 lg:hidden">
           <Link
-            href={`${base}/matningar/ny`}
+            href={addHref}
             className="flex min-h-14 flex-1 items-center justify-center rounded-[14px] bg-accent text-[17px] font-semibold text-white shadow-[0_6px_20px_rgba(28,92,102,0.22)]"
           >
             {NAV.addMeasurement}
