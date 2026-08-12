@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="Barntillväxt">
+  <rect width="32" height="32" rx="6.4" fill="#1C5C66"></rect>
+  <g transform="translate(0.64 0.64) scale(1.28)">
+    <path d="M3.6 20.2C8.2 20.2 10.8 15.4 12.8 10.6C14.0 7.8 15.2 6.2 16.4 5.4" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" fill="none"></path>
+    <circle cx="19.4" cy="4.0" r="2.4" fill="#FFFFFF"></circle>
+  </g>
+</svg>

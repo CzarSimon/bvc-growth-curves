@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandMark } from "./brand-mark";
 import { ChildChip, ChildRows, type ChildSummary } from "./child-switcher";
 import { APP_NAME, NAV, SWITCHER } from "@/lib/copy";
 import { cn } from "@/lib/cn";
@@ -49,9 +50,7 @@ export function AppShell({
 
       <aside className="hidden w-67 flex-none flex-col gap-1.5 border-r border-border bg-surface-sunken px-3.5 py-5 lg:sticky lg:top-0 lg:flex lg:h-screen">
         <div className="flex items-center gap-2.5 px-1.5 pb-3.5">
-          <span className="flex h-7.5 w-7.5 items-center justify-center rounded-lg bg-accent font-serif text-[17px] text-white">
-            K
-          </span>
+          <BrandMark size={30} />
           <span className="font-serif text-[19px] font-semibold">{APP_NAME}</span>
         </div>
         <span className="px-1.5 pb-1.5 text-xs tracking-[0.06em] text-ink-muted uppercase">

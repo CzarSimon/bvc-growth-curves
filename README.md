@@ -1,4 +1,4 @@
-# Kurvan
+# Barntillväxt
 
 A web app that lets a parent record a newborn's measurements and plot them
 against the official Swedish growth curves. All user-facing copy is Swedish;
@@ -102,14 +102,46 @@ limited to a few messages an hour and is not meant for production.
 Never run `supabase/tests/rls.sql` against the hosted database. It writes
 directly to `auth.users` and is local-only.
 
+### The domain
+
+The product is **Barntillväxt** at **barntillväxt.se**. That name contains `ä`,
+so the domain is an IDN and has two forms:
+
+| form | value | where it belongs |
+|---|---|---|
+| display (Unicode) | `barntillväxt.se` | anything a person reads |
+| wire (punycode) | `xn--barntillvxt-t8a.se` | DNS, TLS, Supabase `site_url` and redirect allowlists, `metadataBase`, any `href` |
+
+Both live in `src/lib/site.ts`; keep the split, or copy-paste and link previews
+will disagree. Verify the punycode against the registrar's own conversion before
+buying anything — the brand handoff quotes `xn--barntillvxt-p5a`, which is not a
+valid encoding of this label.
+
+Still to do when the domain is actually registered, none of it in this repo:
+
+- Register the ASCII fallback `barntillvaxt.se` too and 301 it to the primary.
+  Swedish users type `a` for `ä` about as often as not.
+- Point the domain at Vercel, then move Supabase's `site_url` and
+  `additional_redirect_urls` in `[remotes.prod]` off the `.vercel.app` host and
+  `config push`. Until then the `.vercel.app` URL stays authoritative, so those
+  values are deliberately unchanged.
+- Put transactional mail on the ASCII domain. Mail to an IDN domain is poorly
+  supported.
+- `src/app/opengraph-image.png` was generated with Georgia standing in for
+  Source Serif 4, which the generator did not have. Rebuild it with the real
+  font before launch; the layout is final.
+
 ## How it is put together
 
 ```
 src/lib/growth/     the curve maths — pure, dependency-free, no I/O
 src/lib/            copy, formatting, validation, the reading state machine
 src/components/     the chart and the screens' shared parts
-src/app/            routes and server actions
+src/app/            routes and server actions, plus the brand icons Next picks
+                    up by convention (favicon.ico, icon.svg, apple-icon.png,
+                    opengraph-image.png) and the web manifest
 src/data/           the reference curves, imported at build time
+public/             the logo and the PWA icons the manifest points at
 supabase/           migrations, RLS tests, local config
 extraction/         the Python that read the curves off the official charts
 docs/reference/     the official PC PAL 0–2 year charts, as published
