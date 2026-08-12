@@ -171,6 +171,22 @@ parent sees comes out of it.
   still stored and still shown — it is only left off the chart, with a note
   saying why.
 
+### The projection
+
+"Visa fortsättning" on the curve screen draws a dashed continuation of the
+child's own line, from the latest measurement to the child's corrected age
+today. It holds the latest SDS constant and reads the reference forward
+(`src/lib/growth/projection.ts`) — the same assumption a nurse says out loud,
+"om hon fortsätter i sin kanal".
+
+- **It is not a trend fit and must not become one.** A slope fitted to two BVC
+  visits turns a 100 g weighing difference into kilos by age two.
+- **It stops at today's age, never at the end of the visible interval.** The
+  zoom only ever clips the line short. Everything past today is speculation
+  about a child who has not been measured yet.
+- It is off by default, lives only in component state, and never appears on the
+  home screen's previews. Every state that draws nothing still says why.
+
 ### The reference data
 
 `src/data/boys-curves.json` and `src/data/girls-curves.json` are read off the

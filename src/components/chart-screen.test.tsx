@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToReadableStream } from "react-dom/server";
 import { ChartScreen, type ChartScreenData } from "./chart-screen";
-import type { Measure, OutOfRangeReason } from "@/lib/growth";
+import { inRange, type Measure, type OutOfRangeReason } from "@/lib/growth";
 import type { CurvePoint } from "@/lib/child-data";
 
 const emptyNotPlotted = {
@@ -23,6 +23,7 @@ function data(over: Partial<ChartScreenData> = {}): ChartScreenData {
     sex: "female",
     birthDate: "2025-08-10",
     footnote: "Kurvorna visar medelvärde (M) och standardavvikelser…",
+    todayAgeMonths: inRange(7.5),
     series: { weight: points, length: [], head: [] },
     notPlotted: emptyNotPlotted,
     ageDaysByMeasurement: { a: 92, b: 184 },
@@ -73,5 +74,14 @@ describe("the chart screen", () => {
   it("says a measure has no measurements yet instead of showing a blank card", async () => {
     const html = await render(data({ series: { weight: [], length: [], head: [] } }));
     expect(html).toContain("Inga mätningar av vikt än");
+  });
+
+  it("offers the projection but leaves it off, with nothing drawn or said", async () => {
+    const html = await render(data());
+    expect(html).toContain("Visa fortsättning");
+    expect(html).toContain('aria-pressed="false"');
+    expect(html).not.toContain("Linjen räknas fram till i dag");
+    expect(html).not.toContain("fram till i dag");
+    expect(html).not.toContain('stroke-dasharray="9,7"');
   });
 });

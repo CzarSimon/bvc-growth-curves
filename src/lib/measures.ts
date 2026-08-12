@@ -8,10 +8,18 @@ export type MeasureConfig = {
   slug: MeasureSlug;
   /** How the measure is named in a sentence and on a form. */
   label: string;
+  /** The definite form, for prose: "vikten ligger nu på…". */
+  definite: string;
   /** The name of its own chart. There is no combined "tillväxtkurva". */
   chartTitle: string;
   unit: "kg" | "cm";
   decimals: number;
+  /**
+   * Decimals for a value that is read off the reference rather than measured.
+   * A projection is not known to the gram, and writing it that way would claim
+   * a precision it does not have.
+   */
+  approxDecimals: number;
   /** The database column holding this measure, in grams or millimetres. */
   column: "weight_grams" | "length_mm" | "head_mm";
   /** Display value (kg or cm) to the stored integer. */
@@ -31,9 +39,11 @@ export const MEASURE_CONFIG: Record<Measure, MeasureConfig> = {
     key: "weight",
     slug: "vikt",
     label: "Vikt",
+    definite: "vikten",
     chartTitle: "Viktkurva",
     unit: "kg",
     decimals: 3,
+    approxDecimals: 1,
     column: "weight_grams",
     toStored: kgToGrams,
     fromStored: gramsToKg,
@@ -48,9 +58,11 @@ export const MEASURE_CONFIG: Record<Measure, MeasureConfig> = {
     key: "length",
     slug: "langd",
     label: "Längd",
+    definite: "längden",
     chartTitle: "Längdkurva",
     unit: "cm",
     decimals: 1,
+    approxDecimals: 0,
     column: "length_mm",
     toStored: cmToMm,
     fromStored: mmToCm,
@@ -63,9 +75,11 @@ export const MEASURE_CONFIG: Record<Measure, MeasureConfig> = {
     key: "head",
     slug: "huvudomfang",
     label: "Huvudomfång",
+    definite: "huvudomfånget",
     chartTitle: "Huvudomfångskurva",
     unit: "cm",
     decimals: 1,
+    approxDecimals: 0,
     column: "head_mm",
     toStored: cmToMm,
     fromStored: mmToCm,

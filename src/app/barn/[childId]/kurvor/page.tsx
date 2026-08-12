@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { ChartScreen, type ChartScreenData } from "@/components/chart-screen";
 import { getChild, listMeasurements } from "@/lib/db";
-import { ageDays, seriesFor } from "@/lib/child-data";
+import { ageDays, correctedAge, seriesFor } from "@/lib/child-data";
 import { CHART } from "@/lib/copy";
 import { formatAge, formatDate, formatGestation, todayIso } from "@/lib/format";
 import { MEASURE_ORDER, measureFromSlug } from "@/lib/measures";
@@ -37,12 +37,14 @@ export default async function ChartPage({
   }
 
   const sex = child.sex === "female" ? "Flicka" : "Pojke";
+  const today = todayIso();
   const data: ChartScreenData = {
     childId: child.id,
     childName: child.name,
-    childMeta: `${sex} · ${formatAge(ageDays(child, todayIso()))} · född ${formatDate(child.birthDate)}`,
+    childMeta: `${sex} · ${formatAge(ageDays(child, today))} · född ${formatDate(child.birthDate)}`,
     sex: child.sex,
     birthDate: child.birthDate,
+    todayAgeMonths: correctedAge(child, today),
     footnote: CHART.footnote(
       ageCorrectionDays(child.gestationWeeks, child.gestationDays),
       formatGestation(child.gestationWeeks, child.gestationDays),
