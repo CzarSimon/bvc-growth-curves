@@ -39,12 +39,16 @@ async function render(props: ChartScreenData) {
 }
 
 describe("the chart screen", () => {
-  it("names each measure's own curve and never a combined one", async () => {
+  it("names the shown measure's own curve and never a combined one", async () => {
     const html = await render(data());
     expect(html).toContain("Viktkurva");
-    expect(html).toContain("Längdkurva");
-    expect(html).toContain("Huvudomfångskurva");
     expect(html).not.toMatch(/>Tillväxtkurva</);
+  });
+
+  it("shows only the selected curve, not the other measures", async () => {
+    const html = await render(data());
+    expect(html).not.toContain("Längdkurva");
+    expect(html).not.toContain("Huvudomfångskurva");
   });
 
   it("carries the axis caption and the age-correction footnote", async () => {
