@@ -17,17 +17,24 @@
 
 import { formatNumber } from "./format";
 
-export const APP_NAME = "Kurvan";
+/**
+ * The brand. Note that "kurvan" is also ordinary Swedish for "the curve" and is
+ * used that way all over the copy below — "Kurvan har flyttat sig 0,8 SD nedåt"
+ * is the child's line on the chart, not the service. Only the places where the
+ * word is a title, a wordmark, or the subject of a sentence about what the
+ * *service* does carry the brand name.
+ */
+export const APP_NAME = "Barntillväxt";
 
 export const START = {
   promise:
     "Barnets vikt, längd och huvudomfång på samma tillväxtkurvor som BVC använder. Så att siffrorna på kortet betyder något också hemma.",
   promiseWide:
-    "Barnets vikt, längd och huvudomfång på samma tillväxtkurvor som BVC använder. Kurvan bedömer ingenting — den visar, och pekar vidare till BVC när något är värt att ta upp.",
+    "Barnets vikt, längd och huvudomfång på samma tillväxtkurvor som BVC använder. Barntillväxt bedömer ingenting — den visar, och pekar vidare till BVC när något är värt att ta upp.",
   points: [
     "Samma referenskurvor som på BVC-kortet — medelvärde och standardavvikelser (SD).",
     "Du ser hur barnet följer sin egen kanal över tid. Det är trenden som säger något, inte en enskild punkt.",
-    "Kurvan bedömer ingenting och ställer inga diagnoser. Det gör BVC — och dit hjälper vi dig hitta.",
+    "Barntillväxt bedömer ingenting och ställer inga diagnoser. Det gör BVC — och dit hjälper vi dig hitta.",
   ],
   addChild: "Lägg till barn",
   // The design's first-run screen promised device-local storage. This build
@@ -39,7 +46,7 @@ export const START = {
 export const AUTH = {
   title: "Logga in",
   intro:
-    "Kurvan sparar barnets mätningar på ditt konto. Bara du kommer åt dem.",
+    "Barntillväxt sparar barnets mätningar på ditt konto. Bara du kommer åt dem.",
   email: "E-postadress",
   password: "Lösenord",
   signIn: "Logga in",
@@ -290,12 +297,12 @@ export const PROVENANCE = {
   ageExplainer:
     "Åldersaxeln utgår från fullgången tid, vecka 40+0, inte från födseln. Ett barn fött i vecka 38 och ett fött i vecka 41 hamnar därför på olika ställen på kurvan vid samma levnadsålder. Utanför 0–24 månader och utanför vecka 37–42 visar appen ingenting — den räknar inte vidare utanför kurvornas område.",
   disclaimer:
-    "Kurvan är inget medicinskt hjälpmedel. Appen bedömer ingenting och ställer inga diagnoser. Frågor om barnets tillväxt hör hemma på BVC.",
+    "Barntillväxt är inget medicinskt hjälpmedel. Appen bedömer ingenting och ställer inga diagnoser. Frågor om barnets tillväxt hör hemma på BVC.",
 };
 
 export const NAV = {
   overview: "Översikt",
-  charts: "Kurvor",
+  charts: "Tillväxtkurvor",
   measurements: "Mätningar",
   addMeasurement: "Lägg till mätning",
   back: "Tillbaka",
