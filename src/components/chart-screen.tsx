@@ -51,7 +51,6 @@ export function ChartScreen({
 
   const points = data.series[measure];
   const selected = points.find((point) => point.measurementId === selectedId) ?? null;
-  const others = MEASURE_ORDER.filter((key) => key !== measure);
 
   return (
     <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-3.5 px-4 py-4 lg:gap-4 lg:px-8 lg:py-7">
@@ -95,7 +94,7 @@ export function ChartScreen({
           <ZoomPills zoom={zoom} onChange={setZoom} />
         </div>
 
-        <div className="flex flex-col gap-3.5 pt-3.5 lg:grid lg:grid-cols-[1.6fr_1fr] lg:items-start lg:gap-4 lg:pt-0">
+        <div className="flex flex-col gap-3.5 pt-3.5 lg:gap-4 lg:pt-0">
           <div className="flex flex-col gap-2.5 rounded-[14px] border border-border bg-surface px-2.5 pt-3 pb-2.5 lg:p-4">
             <Segmented
               type="single"
@@ -118,8 +117,8 @@ export function ChartScreen({
               measure={measure}
               points={points}
               zoom={zoom}
-              width={isDesktop ? 700 : 344}
-              height={isDesktop ? 400 : 300}
+              width={isDesktop ? 1000 : 344}
+              height={isDesktop ? 440 : 300}
               childName={data.childName}
               selectedId={selectedId}
               onSelect={(point) => setSelectedId(point.measurementId)}
@@ -146,32 +145,6 @@ export function ChartScreen({
                 onClear={() => setSelectedId(null)}
               />
             ) : null}
-
-            <div className="hidden flex-col gap-3 rounded-[14px] border border-border bg-surface p-3.5 lg:flex">
-              <span className="text-[13px] tracking-[0.05em] text-ink-muted uppercase">
-                {CHART.others}
-              </span>
-              {others.map((key, index) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => changeMeasure(key)}
-                  className={`flex cursor-pointer flex-col gap-1 text-left ${index ? "border-t border-hairline pt-2.5" : ""}`}
-                >
-                  <span className="text-sm font-semibold">{MEASURE_CONFIG[key].chartTitle}</span>
-                  <GrowthChart
-                    sex={data.sex}
-                    measure={key}
-                    points={data.series[key]}
-                    zoom={zoom}
-                    width={300}
-                    height={170}
-                    mini
-                    childName={data.childName}
-                  />
-                </button>
-              ))}
-            </div>
 
             <p className="prose-copy m-0 text-[13px]/[1.55] text-ink-muted">{data.footnote}</p>
           </div>
@@ -222,7 +195,7 @@ function SelectedCard({
 }) {
   const config = MEASURE_CONFIG[measure];
   return (
-    <div className="flex flex-col gap-2 rounded-[14px] border border-border-strong bg-surface p-4">
+    <div className="flex flex-col gap-2 rounded-[14px] border border-border-strong bg-surface p-4 lg:max-w-sm">
       <div className="flex items-start justify-between gap-2.5">
         <div className="flex flex-col gap-0.5">
           <span className="nums text-[22px] font-semibold">

@@ -143,7 +143,6 @@ export const CHART = {
   legendMean: "M (medel)",
   legendOne: "±1 SD",
   legendTwoThree: "±2, ±3 SD",
-  others: "De andra kurvorna",
   emptyForMeasure: (measure: string) =>
     `Inga mätningar av ${measure.toLowerCase()} än. Kurvorna visas ändå, så du ser var värdena kommer att hamna.`,
   /** Values that exist but sit outside the reference are named, not hidden. */
