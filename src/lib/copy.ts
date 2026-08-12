@@ -165,6 +165,64 @@ export const CHART = {
 };
 
 /**
+ * "Visa fortsättning" — the opt-in continuation of the child's own line, drawn
+ * from the latest measurement to the child's age today.
+ *
+ * The last sentence of `note` is load-bearing: it is the difference between a
+ * parent reading this as information and reading it as a promise the child then
+ * fails to keep. It stays in the same block as the number.
+ */
+export const PROJECTION = {
+  toggle: "Visa fortsättning",
+  legend: "fram till i dag",
+  noMeasurement: "Det finns ingen mätning att räkna vidare från än.",
+  /**
+   * Verbatim from the design handover, and the one line here worth a second
+   * look in the clinical review: this fires when *today's* corrected age is past
+   * the chosen interval, which is not the same thing as the measurement being
+   * outside it. With a measurement at two months and a child of eight, the
+   * 0–3 mån view shows the point and says the value was measured later than the
+   * interval shows. Left as written rather than reworded unilaterally.
+   */
+  pastInterval: (measureDefinite: string) =>
+    `${capitalise(measureDefinite)} är mätt senare än det valda intervallet visar. Välj ett längre intervall för att se fram till i dag.`,
+  /**
+   * Not in the design handover, which assumes a longer interval always exists.
+   * Past two years there is none — the reference stops there — so the app says
+   * that instead of offering a zoom that would not help.
+   */
+  pastReference:
+    "Kurvan gäller till två år, och barnet är äldre än så. Linjen kan inte räknas fram till i dag.",
+  alreadyCurrent:
+    "Senaste mätningen är i stort sett aktuell. Det finns ingen tid emellan att räkna fram över.",
+  note: ({
+    name,
+    sds,
+    measureDefinite,
+    value,
+    unit,
+    ageMonths,
+  }: {
+    name: string;
+    sds: number;
+    measureDefinite: string;
+    value: string;
+    unit: string;
+    ageMonths: number;
+  }) =>
+    `Linjen räknas fram till i dag och slutar där. Om ${name} stannar på ${sdSigned(sds)} ligger ${measureDefinite} nu på ungefär ${value} ${unit} vid ${formatNumber(ageMonths, 1)} månader. Det är ingen förutsägelse — barn byter kanal, särskilt under första året.`,
+};
+
+/** "+0,4 SD" / "−0,4 SD", with a real minus sign. */
+function sdSigned(sd: number): string {
+  return `${sd >= 0 ? "+" : "−"}${formatNumber(Math.abs(sd), 1)} SD`;
+}
+
+function capitalise(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
  * The SD wording. Always a description of where a value sits, never an
  * evaluation of it.
  */

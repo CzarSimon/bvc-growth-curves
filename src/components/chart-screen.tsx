@@ -4,10 +4,18 @@ import * as React from "react";
 import Link from "next/link";
 import { ChartLegend, GrowthChart, type ZoomRange } from "./growth-chart";
 import { Pill, PillGroup, Segmented, SegmentedItem } from "./ui/segmented";
-import { CHART, OUT_OF_RANGE, sdPhrase } from "@/lib/copy";
+import { CHART, OUT_OF_RANGE, PROJECTION, sdPhrase } from "@/lib/copy";
+import { cn } from "@/lib/cn";
 import { formatAge, formatDate, formatNumber } from "@/lib/format";
 import { MEASURE_CONFIG, MEASURE_ORDER } from "@/lib/measures";
-import type { Measure, OutOfRangeReason, Sex } from "@/lib/growth";
+import {
+  projectForward,
+  type Measure,
+  type OutOfRangeReason,
+  type Projection,
+  type Ranged,
+  type Sex,
+} from "@/lib/growth";
 import type { CurvePoint } from "@/lib/child-data";
 
 export type ChartScreenData = {
@@ -17,6 +25,8 @@ export type ChartScreenData = {
   sex: Sex;
   birthDate: string;
   footnote: string;
+  /** The child's corrected age today — where "Visa fortsättning" stops the line. */
+  todayAgeMonths: Ranged<number>;
   series: Record<Measure, CurvePoint[]>;
   /** Recorded values that fall outside the reference, by measure and reason. */
   notPlotted: Record<Measure, Partial<Record<OutOfRangeReason, number>>>;
@@ -40,6 +50,10 @@ export function ChartScreen({
   const [measure, setMeasure] = React.useState<Measure>(initialMeasure);
   const [zoom, setZoom] = React.useState<ZoomRange>(12);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  // Off by default, and not persisted: the app a parent meets when they open it
+  // is the one without projections. It is not per-measure either — switching
+  // between vikt, längd and huvudomfång keeps it on.
+  const [showProjection, setShowProjection] = React.useState(false);
   const isDesktop = useIsDesktop();
 
   // Selection is cleared whenever the measure changes; a point on the weight
@@ -51,6 +65,18 @@ export function ChartScreen({
 
   const points = data.series[measure];
   const selected = points.find((point) => point.measurementId === selectedId) ?? null;
+
+  const projection = React.useMemo<Projection | null>(() => {
+    if (!showProjection) return null;
+    const latest = points.length ? points[points.length - 1] : null;
+    return projectForward({
+      sex: data.sex,
+      measure,
+      latest: latest ? { ageMonths: latest.ageMonths, sds: latest.sds } : null,
+      todayAgeMonths: data.todayAgeMonths,
+      visibleToMonths: zoom,
+    });
+  }, [showProjection, points, data.sex, data.todayAgeMonths, measure, zoom]);
 
   return (
     <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-3.5 px-4 py-4 lg:gap-4 lg:px-8 lg:py-7">
@@ -70,7 +96,10 @@ export function ChartScreen({
             {data.childName} · {data.childMeta}
           </span>
         </div>
-        <ZoomPills zoom={zoom} onChange={setZoom} />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <ZoomPills zoom={zoom} onChange={setZoom} />
+          <ProjectionToggle on={showProjection} onChange={setShowProjection} />
+        </div>
       </div>
 
       <div>
@@ -90,8 +119,9 @@ export function ChartScreen({
           ))}
         </Segmented>
 
-        <div className="pt-3.5 lg:hidden">
+        <div className="flex flex-col items-start gap-2.5 pt-3.5 lg:hidden">
           <ZoomPills zoom={zoom} onChange={setZoom} />
+          <ProjectionToggle on={showProjection} onChange={setShowProjection} />
         </div>
 
         <div className="flex flex-col gap-3.5 pt-3.5 lg:gap-4 lg:pt-0">
@@ -122,8 +152,17 @@ export function ChartScreen({
               childName={data.childName}
               selectedId={selectedId}
               onSelect={(point) => setSelectedId(point.measurementId)}
+              projection={projection}
             />
-            <ChartLegend childName={data.childName} />
+            {projection ? (
+              <p className="prose-copy px-1 text-[13px]/[1.5] text-ink-secondary">
+                {projectionNote(projection, measure, data.childName)}
+              </p>
+            ) : null}
+            <ChartLegend
+              childName={data.childName}
+              showProjection={projection?.drawn ?? false}
+            />
             {points.length === 0 ? (
               <p className="prose-copy px-1 text-[13px]/[1.5] text-ink-muted">
                 {CHART.emptyForMeasure(MEASURE_CONFIG[measure].label)}
@@ -180,6 +219,75 @@ function ZoomPills({
       </PillGroup>
     </div>
   );
+}
+
+/**
+ * The toggle reads as on or off without relying on the tick alone: the whole
+ * pill takes the accent tint and border when it is on.
+ */
+function ProjectionToggle({
+  on,
+  onChange,
+}: {
+  on: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={() => onChange(!on)}
+      className={cn(
+        "flex min-h-11 cursor-pointer items-center gap-2 rounded-full border pr-3.5 pl-2.5 text-[13px] font-semibold transition-colors",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        on
+          ? "border-accent bg-accent-surface text-accent-ink"
+          : "border-border-input bg-surface text-ink-secondary",
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex h-5 w-5 flex-none items-center justify-center rounded-[6px] border text-xs/none",
+          on
+            ? "border-accent bg-accent text-white"
+            : "border-border-strong bg-surface text-transparent",
+        )}
+      >
+        ✓
+      </span>
+      {PROJECTION.toggle}
+    </button>
+  );
+}
+
+/**
+ * What the projection says in words. Every state has a sentence — the toggle
+ * never turns on and leaves the parent looking at an unchanged chart with no
+ * explanation.
+ */
+function projectionNote(projection: Projection, measure: Measure, childName: string): string {
+  const config = MEASURE_CONFIG[measure];
+  if (projection.drawn) {
+    return PROJECTION.note({
+      name: childName,
+      sds: projection.sds,
+      measureDefinite: config.definite,
+      value: formatNumber(projection.to.value, config.approxDecimals),
+      unit: config.unit,
+      ageMonths: projection.to.ageMonths,
+    });
+  }
+  switch (projection.reason) {
+    case "no-measurement":
+      return PROJECTION.noMeasurement;
+    case "today-past-interval":
+      return PROJECTION.pastInterval(config.definite);
+    case "today-past-reference":
+      return PROJECTION.pastReference;
+    case "already-current":
+      return PROJECTION.alreadyCurrent;
+  }
 }
 
 function SelectedCard({

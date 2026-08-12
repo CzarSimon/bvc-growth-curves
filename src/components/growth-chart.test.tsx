@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { GrowthChart, normalisedAge } from "./growth-chart";
 import type { CurvePoint } from "@/lib/child-data";
-import type { Measure } from "@/lib/growth";
+import { inRange, projectForward, type Measure } from "@/lib/growth";
 
 const points: CurvePoint[] = [
   { measurementId: "a", measuredOn: "2025-08-10", ageMonths: 0, value: 3.48, sds: -0.2 },
@@ -85,6 +85,82 @@ describe("the growth chart", () => {
     const cy = Number(/circle cx="[\d.]+" cy="([\d.-]+)"/.exec(markup)?.[1]);
     expect(cy).toBeGreaterThan(0);
     expect(cy).toBeLessThan(300);
+  });
+});
+
+describe("the projection", () => {
+  const projection = (todayAgeMonths: number, visibleToMonths = 12) =>
+    projectForward({
+      sex: "female",
+      measure: "weight",
+      latest: { ageMonths: 6, sds: 0.2 },
+      todayAgeMonths: inRange(todayAgeMonths),
+      visibleToMonths,
+    });
+
+  it("draws the child's own ink, dashed longer than any reference line", () => {
+    const markup = render({ projection: projection(9) });
+    const dashed = /<path[^>]*stroke-dasharray="9,7"[^>]*>/.exec(markup)?.[0];
+    expect(dashed).toBeDefined();
+    expect(dashed).toContain('stroke="var(--color-ink)"');
+    expect(dashed).toContain('stroke-width="2.4"');
+    expect(dashed).toContain('opacity="0.8"');
+  });
+
+  it("draws nothing when the toggle is off", () => {
+    expect(render()).not.toContain('stroke-dasharray="9,7"');
+    expect(render({ projection: null })).not.toContain('stroke-dasharray="9,7"');
+  });
+
+  it("marks the endpoint with its value once the line is long enough to see", () => {
+    const markup = render({ projection: projection(9) });
+    expect(markup).toMatch(/≈ \d+,\d kg/);
+  });
+
+  it("suppresses the endpoint marker on a span too short to hold it", () => {
+    // Two weeks since the last visit is the normal state of this app; at that
+    // width the hollow endpoint and the measured dot merge into one smudge.
+    const markup = render({ projection: projection(6.4) });
+    expect(markup).toContain('stroke-dasharray="9,7"');
+    expect(markup).not.toMatch(/≈/);
+  });
+
+  it("rescales the y axis to hold the projected values", () => {
+    const measured: CurvePoint[] = [
+      { measurementId: "a", measuredOn: "2026-02-10", ageMonths: 6, value: 11.5, sds: 3.2 },
+    ];
+    const line = projectForward({
+      sex: "female",
+      measure: "weight",
+      latest: { ageMonths: 6, sds: 3.2 },
+      todayAgeMonths: inRange(12),
+      visibleToMonths: 12,
+    });
+    const markup = render({ points: measured, projection: line, zoom: 12 });
+    expect(markup).not.toMatch(/NaN/);
+    const dashed = /<path d="([^"]+)"[^>]*stroke-dasharray="9,7"/.exec(markup)?.[1];
+    const ys = [...dashed!.matchAll(/[ML][\d.-]+ ([\d.-]+)/g)].map((m) => Number(m[1]));
+    // The whole projection stays inside the drawing rather than being clipped.
+    for (const y of ys) {
+      expect(y).toBeGreaterThan(0);
+      expect(y).toBeLessThan(300);
+    }
+  });
+
+  it("draws every measure and zoom without producing a NaN coordinate", () => {
+    for (const measure of ["weight", "length", "head"] as Measure[]) {
+      for (const zoom of [3, 12, 24] as const) {
+        const line = projectForward({
+          sex: "male",
+          measure,
+          latest: { ageMonths: 1.5, sds: -1.1 },
+          todayAgeMonths: inRange(2.6),
+          visibleToMonths: zoom,
+        });
+        const markup = render({ sex: "male", measure, zoom, projection: line });
+        expect(markup, `${measure}/${zoom}`).not.toMatch(/NaN|Infinity/);
+      }
+    }
   });
 });
 

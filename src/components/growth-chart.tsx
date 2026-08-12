@@ -2,9 +2,17 @@
 
 import * as React from "react";
 import { scaleLinear, scaleLog } from "d3-scale";
-import { CHART } from "@/lib/copy";
+import { CHART, PROJECTION } from "@/lib/copy";
 import { MEASURE_CONFIG } from "@/lib/measures";
-import { AGE_MAX_MONTHS, sampleAges, sampleSdCurve, type Measure, type Sex } from "@/lib/growth";
+import { formatNumber } from "@/lib/format";
+import {
+  AGE_MAX_MONTHS,
+  sampleAges,
+  sampleSdCurve,
+  type Measure,
+  type Projection,
+  type Sex,
+} from "@/lib/growth";
 import type { CurvePoint } from "@/lib/child-data";
 
 export type ZoomRange = 3 | 12 | 24;
@@ -52,6 +60,23 @@ const SD_STYLE: Record<number, { dash?: string; width: number; label: string }> 
 
 const SAMPLE_COUNT = 91;
 
+/**
+ * The dash that marks the projection as provisional. It has to be visibly
+ * longer than every grey dash on the chart (`4,3` and `1,3`), because the ink
+ * and the weight are the child's own and only the rhythm tells them apart.
+ */
+const PROJECTION_DASH = "9,7";
+
+/**
+ * Below this drawn width the endpoint marker and its label are suppressed. Two
+ * or three weeks since the last visit is the normal state of this app, which
+ * makes a very short line the default case — at that length the hollow endpoint
+ * circle and the filled measured dot overlap into one smudge. Dashes alone read
+ * fine.
+ */
+const PROJECTION_MARKER_MIN_PX = 14;
+const PROJECTION_MARKER_MIN_PX_MINI = 9;
+
 export type GrowthChartProps = {
   sex: Sex;
   measure: Measure;
@@ -64,6 +89,11 @@ export type GrowthChartProps = {
   childName: string;
   selectedId?: string | null;
   onSelect?: (point: CurvePoint) => void;
+  /**
+   * The opt-in continuation to today's age. Only ever passed on the detail
+   * curve view — never on the home screen's previews, where nobody asked for it.
+   */
+  projection?: Projection | null;
 };
 
 export function GrowthChart({
@@ -77,6 +107,7 @@ export function GrowthChart({
   childName,
   selectedId = null,
   onSelect,
+  projection = null,
 }: GrowthChartProps) {
   const config = MEASURE_CONFIG[measure];
   const domainFrom = 0;
@@ -118,11 +149,19 @@ export function GrowthChart({
     };
   }, [domainFrom, domainTo, padLeft, padRight, width]);
 
+  const projected = projection?.drawn ? projection : null;
+
   // The domain is the ±3 SD envelope over the visible ages, widened to hold the
-  // child's own points, padded 4%.
+  // child's own points, padded 4%. It holds the projection too, so turning the
+  // toggle on can rescale the axis — clipping the projection at the old extent
+  // would be worse.
   let low = Math.min(...curves[-3]);
   let high = Math.max(...curves[3]);
   for (const point of visiblePoints) {
+    low = Math.min(low, point.value);
+    high = Math.max(high, point.value);
+  }
+  for (const point of projected?.points ?? []) {
     low = Math.min(low, point.value);
     high = Math.max(high, point.value);
   }
@@ -280,6 +319,24 @@ export function GrowthChart({
         />
       ) : null}
 
+      {/*
+        The child's own ink, dashed. Not a lighter grey: an earlier pass drew it
+        at 40 % opacity over the band fill, which landed on roughly #98928B —
+        tonally identical to the SD reference lines, so a child sitting near
+        −1 SD had a projection that read as a fourth reference curve.
+      */}
+      {projected ? (
+        <ProjectionPath
+          projection={projected}
+          x={x}
+          y={y}
+          mini={mini}
+          unit={config.unit}
+          decimals={config.approxDecimals}
+          rightEdge={width - padRight}
+        />
+      ) : null}
+
       {visiblePoints.map((point) => {
         const selected = selectedId === point.measurementId;
         return (
@@ -332,13 +389,103 @@ export function GrowthChart({
   );
 }
 
-export function ChartLegend({ childName }: { childName: string }) {
+function ProjectionPath({
+  projection,
+  x,
+  y,
+  mini,
+  unit,
+  decimals,
+  rightEdge,
+}: {
+  projection: Extract<Projection, { drawn: true }>;
+  x: (months: number) => number;
+  y: (value: number) => number;
+  mini: boolean;
+  unit: string;
+  decimals: number;
+  /** Where the plot ends. Past it live the ±SD edge labels, which the value must not sit on. */
+  rightEdge: number;
+}) {
+  const path = projection.points
+    .map(
+      (point, i) =>
+        `${i ? "L" : "M"}${x(point.ageMonths).toFixed(1)} ${y(point.value).toFixed(1)}`,
+    )
+    .join(" ");
+  const endX = x(projection.to.ageMonths);
+  const endY = y(projection.to.value);
+  const spanPx = endX - x(projection.from.ageMonths);
+  const showMarker =
+    spanPx > (mini ? PROJECTION_MARKER_MIN_PX_MINI : PROJECTION_MARKER_MIN_PX);
+
+  const label = `≈ ${formatNumber(projection.to.value, decimals)} ${unit}`;
+  // The endpoint is today's age, which on a tight zoom sits right at the plot's
+  // edge. Rather than let the value run into the SD edge labels, it swaps to the
+  // other side of the endpoint — still clear of the measured point, which is
+  // always to its left.
+  const labelWidth = 8 + label.length * 6;
+  const labelFits = endX + labelWidth <= rightEdge;
+
+  return (
+    <g>
+      <path
+        d={path}
+        fill="none"
+        stroke="var(--color-ink)"
+        strokeWidth={mini ? 1.8 : 2.4}
+        strokeDasharray={PROJECTION_DASH}
+        strokeLinecap="round"
+        opacity={0.8}
+      />
+      {showMarker ? (
+        <>
+          <circle
+            cx={endX}
+            cy={endY}
+            r={mini ? 2.4 : 4.2}
+            fill="var(--color-bg)"
+            stroke="var(--color-ink)"
+            strokeWidth={1.8}
+            opacity={0.85}
+          />
+          {!mini ? (
+            <text
+              x={labelFits ? endX + 7 : endX - 7}
+              y={endY - 7}
+              textAnchor={labelFits ? "start" : "end"}
+              fontSize={11}
+              fontWeight={600}
+              fill="var(--color-ink-secondary)"
+            >
+              {label}
+            </text>
+          ) : null}
+        </>
+      ) : null}
+    </g>
+  );
+}
+
+export function ChartLegend({
+  childName,
+  showProjection = false,
+}: {
+  childName: string;
+  /** Only when a projection is actually drawn — never merely when the toggle is on. */
+  showProjection?: boolean;
+}) {
   return (
     <div className="flex flex-wrap gap-3 px-1">
       <span className="w-full text-xs text-ink-muted">{CHART.axisCaption}</span>
       <LegendItem label={childName}>
         <span className="block h-0 w-[22px] border-t-[2.5px] border-solid border-ink" />
       </LegendItem>
+      {showProjection ? (
+        <LegendItem label={PROJECTION.legend}>
+          <span className="block h-0 w-[22px] border-t-[2.5px] border-dashed border-ink opacity-80" />
+        </LegendItem>
+      ) : null}
       <LegendItem label={CHART.legendMean}>
         <span className="block h-0 w-[22px] border-t-[1.5px] border-solid border-chart-mean" />
       </LegendItem>
