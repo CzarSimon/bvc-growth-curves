@@ -9,6 +9,14 @@ import { APP_NAME, NAV, SWITCHER } from "@/lib/copy";
 import { cn } from "@/lib/cn";
 
 /**
+ * The overview is the only nav item that matches exactly; every other section
+ * stays lit while you are inside it, so "Bjud in" still reads as "Tillgång".
+ */
+function isActive(pathname: string, href: string, base: string): boolean {
+  return href === base ? pathname === base : pathname.startsWith(href);
+}
+
+/**
  * Mobile gets a header with the active child chip; desktop gets a persistent
  * sidebar with the children on top and the nav pinned to the bottom. Both are
  * present on every screen inside a child, so the active child is never in
@@ -17,23 +25,30 @@ import { cn } from "@/lib/cn";
 export function AppShell({
   child,
   childList,
+  canEdit,
   children,
 }: {
   child: ChildSummary;
   children: React.ReactNode;
   childList: ChildSummary[];
+  /** False for a view-only user: no add button, anywhere. */
+  canEdit: boolean;
 }) {
   const pathname = usePathname();
   const base = `/barn/${child.id}`;
   // The primary action rides on the screens a parent reads, not on the forms.
   const onHistory = pathname === `${base}/matningar`;
-  const showAddButton = pathname === base || pathname === `${base}/kurvor` || onHistory;
+  const showAddButton =
+    canEdit && (pathname === base || pathname === `${base}/kurvor` || onHistory);
   // From the history list, saving returns to the list rather than the overview.
   const addHref = `${base}/matningar/ny${onHistory ? "?retur=matningar" : ""}`;
   const navItems = [
     { href: base, label: NAV.overview },
     { href: `${base}/kurvor`, label: NAV.charts },
     { href: `${base}/matningar`, label: NAV.measurements },
+    // Sharing is a fourth nav item rather than a setting: who can read a
+    // child's measurements is not a preference.
+    { href: `${base}/tillgang`, label: NAV.access },
   ];
 
   return (
@@ -71,7 +86,7 @@ export function AppShell({
               href={item.href}
               className={cn(
                 "flex min-h-10.5 items-center rounded-[9px] px-3 text-[15px] font-semibold",
-                pathname === item.href
+                isActive(pathname, item.href, base)
                   ? "bg-accent-surface text-accent"
                   : "text-ink-secondary hover:bg-surface",
               )}

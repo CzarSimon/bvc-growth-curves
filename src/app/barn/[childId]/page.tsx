@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GrowthChart } from "@/components/growth-chart";
 import { AttentionCard, BvcCard } from "@/components/bvc-card";
-import { getChild, listMeasurements } from "@/lib/db";
+import { getChild, getMyRole, listChildAccess, listMeasurements } from "@/lib/db";
+import { accessSummary, canEdit, canRead, type AccessMember } from "@/lib/access";
 import {
   ageDays,
   latestMeasurement,
@@ -13,7 +14,15 @@ import {
   type Measurement,
 } from "@/lib/child-data";
 import { buildReading } from "@/lib/reading";
-import { CURVES_CARD, NAV, OUT_OF_RANGE_SHORT, READING, sdPhrase } from "@/lib/copy";
+import {
+  CURVES_CARD,
+  NAV,
+  OUT_OF_RANGE_SHORT,
+  READING,
+  SHARE,
+  VIEW_ONLY,
+  sdPhrase,
+} from "@/lib/copy";
 import { formatAge, formatDate, formatNumber, todayIso } from "@/lib/format";
 import { MEASURE_CONFIG, MEASURE_ORDER } from "@/lib/measures";
 import { plotMeasurement } from "@/lib/growth";
@@ -28,10 +37,21 @@ export default async function ChildHomePage({
   const { childId } = await params;
   const child = await getChild(childId);
   if (!child) notFound();
-  const measurements = await listMeasurements(childId);
+  const [measurements, myRole, access] = await Promise.all([
+    listMeasurements(childId),
+    getMyRole(childId),
+    listChildAccess(childId),
+  ]);
 
   const reading = buildReading(child, measurements);
   const latest = latestMeasurement(measurements);
+  // A view-only user gets the measurements and the curves, and not the reading
+  // or the attention card. Those interpret, and interpreting — then ringing BVC
+  // about it — belongs to the child's guardians. A grandparent reading "Något
+  // att ta upp på BVC" and phoning the mother about it is the exact anxiety
+  // this app exists to avoid.
+  const showReading = canRead(myRole);
+  const showAdd = canEdit(myRole);
 
   return (
     <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-3.5 px-4 py-4 lg:gap-5 lg:px-8 lg:py-7">
@@ -40,29 +60,40 @@ export default async function ChildHomePage({
           <h1 className="font-serif text-[32px] font-semibold">{child.name}</h1>
           <span className="text-[15px] text-ink-muted">{childMeta(child)}</span>
         </div>
-        <Link
-          href={`/barn/${child.id}/matningar/ny`}
-          className="flex min-h-12 items-center rounded-[10px] bg-accent px-5 text-base font-semibold text-white"
-        >
-          {NAV.addMeasurement}
-        </Link>
+        {showAdd ? (
+          <Link
+            href={`/barn/${child.id}/matningar/ny`}
+            className="flex min-h-12 items-center rounded-[10px] bg-accent px-5 text-base font-semibold text-white"
+          >
+            {NAV.addMeasurement}
+          </Link>
+        ) : null}
       </div>
 
-      <div className="flex flex-col gap-3.5 lg:grid lg:grid-cols-[1.35fr_1fr] lg:items-start lg:gap-4">
-        <div className="flex flex-col gap-3.5 rounded-[14px] border border-border bg-surface p-[18px] lg:p-[22px]">
-          <h2 className="font-serif text-xl font-semibold lg:text-[21px]">{reading.title}</h2>
-          <p className="prose-copy m-0 text-base/[1.55] text-ink-secondary lg:leading-[1.6]">
-            {reading.body}
-          </p>
+      {showReading ? null : <ViewOnlyNote childName={child.name} />}
 
-          {latest ? (
-            <LatestValues child={child} latest={latest} />
-          ) : null}
-        </div>
+      <div className="flex flex-col gap-3.5 lg:grid lg:grid-cols-[1.35fr_1fr] lg:items-start lg:gap-4">
+        {/* Nothing but an empty box when a view-only user opens a child with no
+            measurements yet, so the card only exists if it has something in it. */}
+        {showReading || latest ? (
+          <div className="flex flex-col gap-3.5 rounded-[14px] border border-border bg-surface p-[18px] lg:p-[22px]">
+            {showReading ? (
+              <>
+                <h2 className="font-serif text-xl font-semibold lg:text-[21px]">{reading.title}</h2>
+                <p className="prose-copy m-0 text-base/[1.55] text-ink-secondary lg:leading-[1.6]">
+                  {reading.body}
+                </p>
+              </>
+            ) : null}
+
+            {latest ? <LatestValues child={child} latest={latest} /> : null}
+          </div>
+        ) : null}
 
         <div className="flex flex-col gap-4">
-          {reading.attention ? <AttentionCard text={reading.attention} /> : null}
+          {showReading && reading.attention ? <AttentionCard text={reading.attention} /> : null}
           <BvcCard />
+          <AccessSummaryCard childId={child.id} access={access} />
         </div>
       </div>
 
@@ -88,6 +119,45 @@ export default async function ChildHomePage({
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * What a view-only user is told, at the top, before they notice what is
+ * missing. Hiding the reading silently would read as a broken screen.
+ */
+function ViewOnlyNote({ childName }: { childName: string }) {
+  return (
+    <div className="flex max-w-[640px] flex-col gap-1.5 rounded-[14px] border border-border-strong bg-surface-muted px-4 py-3.5 lg:px-4.5 lg:py-4">
+      <span className="text-[15px] font-semibold">{VIEW_ONLY.title(childName)}</span>
+      <p className="prose-copy m-0 text-sm/[1.5] text-ink-secondary">{VIEW_ONLY.body(childName)}</p>
+    </div>
+  );
+}
+
+/** "3 personer · du, Erik, Ingrid" — the way into the access screen. */
+function AccessSummaryCard({ childId, access }: { childId: string; access: AccessMember[] }) {
+  const summary = accessSummary(access, {
+    alone: SHARE.countAlone,
+    count: SHARE.count,
+    you: SHARE.youLower,
+  });
+
+  return (
+    <Link
+      href={`/barn/${childId}/tillgang`}
+      className="flex items-center gap-3 rounded-[14px] border border-border bg-surface p-4 hover:border-border-strong lg:p-[18px]"
+    >
+      <span className="flex flex-col gap-0.5">
+        <span className="text-base font-semibold lg:text-[15px]">{SHARE.cardTitle}</span>
+        <span className="text-[13px]/[1.45] text-ink-muted">
+          {summary.count} · {summary.names}
+        </span>
+      </span>
+      <span className="ml-auto text-sm font-semibold whitespace-nowrap text-accent">
+        {SHARE.cardOpen}
+      </span>
+    </Link>
   );
 }
 

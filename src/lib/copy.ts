@@ -39,14 +39,15 @@ export const START = {
   addChild: "Lägg till barn",
   // The design's first-run screen promised device-local storage. This build
   // keeps the data in an account so it survives a lost phone, so the promise
-  // is stated as it actually is.
-  storage: "Uppgifterna sparas på ditt konto och syns bara för dig.",
+  // is stated as it actually is — including the part sharing added: "bara du"
+  // stopped being the whole truth the moment a child could be shared.
+  storage: "Uppgifterna sparas på ditt konto och syns bara för dig och dem du delar med.",
 };
 
 export const AUTH = {
   title: "Logga in",
   intro:
-    "Barntillväxt sparar barnets mätningar på ditt konto. Bara du kommer åt dem.",
+    "Barntillväxt sparar barnets mätningar på ditt konto. Bara du kommer åt dem, och de du själv väljer att dela med.",
   email: "E-postadress",
   password: "Lösenord",
   signIn: "Logga in",
@@ -55,6 +56,12 @@ export const AUTH = {
   toggleToSignIn: "Har du redan ett konto? Logga in",
   signOut: "Logga ut",
   passwordHint: "Minst 8 tecken.",
+  /**
+   * The settings screen is the child-editing screen, which a view-only user has
+   * no business on — but signing out lives there too, so they get the same
+   * route with nothing on it but their account.
+   */
+  accountTitle: "Ditt konto",
   errors: {
     invalid: "E-postadressen eller lösenordet stämmer inte.",
     emailRequired: "Fyll i din e-postadress.",
@@ -63,6 +70,133 @@ export const AUTH = {
     alreadyRegistered: "Det finns redan ett konto med den e-postadressen.",
     generic: "Det gick inte just nu. Försök igen.",
   },
+};
+
+/**
+ * Sharing a child.
+ *
+ * Two roles, and the wording of the difference between them is the design:
+ * "Delar ansvaret" is permanent and says so three times — on the invite screen,
+ * on the accept screen, and on the person's row afterwards — while "Kan se" is
+ * removable and never pretends otherwise.
+ *
+ * Nobody is notified about anything here, which the revoke confirmation states
+ * out loud rather than leaving for the parent to discover.
+ *
+ * The strings for the link's dead ends (used, expired, wrong) are not in the
+ * design handover and are written to the same rules: say what happened, say
+ * what to do, blame nobody.
+ */
+export const SHARE = {
+  cardTitle: "Vem har tillgång",
+  cardOpen: "Öppna →",
+  /** The one-line summary on the child's home screen. */
+  countAlone: "Bara du",
+  count: (people: number) => `${people} personer`,
+  you: "Du",
+  youLower: "du",
+
+  title: (childName: string) => `Vem har tillgång till ${childName}`,
+  intro:
+    "Två roller. Den som delar ansvaret gör allt du gör. Den som bara ser kan följa kurvorna utan att kunna ändra något.",
+  since: (date: string) => `Har tillgång sedan ${date}`,
+  footnote:
+    "Barntillväxt är ingen journal. Uppgifterna är de ni själva fört in från BVC-kortet, och de som har tillgång ser allt som står här.",
+
+  roleName: { guardian: "Delar ansvaret", viewer: "Kan se" },
+  roleSummary: {
+    guardian: "Lägger till och ändrar mätningar. Ser hela läsningen.",
+    viewer: "Ser kurvor och mätningar. Ändrar ingenting.",
+  },
+  /** The longer form, used where the choice is being made rather than shown. */
+  roleChoice: {
+    guardian:
+      "Lägger till och ändrar mätningar, och ser hela läsningen. Går inte att ta bort efteråt.",
+    viewer: "Ser kurvor och mätningar. Ändrar ingenting. Du kan ta bort tillgången när du vill.",
+  },
+
+  permanent: (personName: string, childName: string) =>
+    `Kan inte tas bort — varken av dig eller av ${personName}. Ni har lika rätt till ${childName}s uppgifter.`,
+  removeAsk: "Ta bort tillgång",
+  removeConfirm: (personName: string, childName: string) =>
+    `Ta bort ${personName}s tillgång? ${childName} försvinner ur ${personName}s app. ${personName} får inget meddelande om det.`,
+  remove: "Ta bort",
+  cancel: "Avbryt",
+
+  invite: "Bjud in någon",
+  inviteTitle: (childName: string) => `Bjud in till ${childName}`,
+  inviteIntro:
+    "Välj vad personen ska kunna göra. Det bestäms nu, innan länken finns — den som öppnar länken kan inte välja själv.",
+  permanentWarning: (childName: string) =>
+    `Att dela ansvaret är permanent. Den som går med får samma rätt till ${childName}s uppgifter som du, och ingen av er kan ta bort den andra. Så fungerar det för att två vårdnadshavare inte ska kunna stänga ut varandra.`,
+  createLink: "Skapa länk",
+  linkFor: (roleName: string) => `Länk för ${roleName}`,
+  copyLink: "Kopiera länk",
+  copied: "Kopierad ✓",
+  newLink: "Ny länk",
+  linkTerms:
+    "Gäller i 7 dagar och kan användas en gång. Skicka den i SMS, chatt eller mejl — hur du vill. Den som öppnar länken först är den som får tillgång, så skicka den bara till den du menar.",
+  linkFailed: "Det gick inte att skapa en länk just nu. Försök igen.",
+
+  acceptTitle: (inviterName: string, childName: string) =>
+    `${inviterName} har delat ${childName} med dig`,
+  acceptBody: (childName: string, pronoun: string) =>
+    `${childName} finns redan i Barntillväxt. Går du med hamnar ${pronoun} i din app, med de mätningar som redan är inlagda.`,
+  acceptRoleLabel: "Du går med som",
+  acceptPermanent: (inviterName: string) =>
+    `Att dela ansvaret är permanent. Du får samma rätt till uppgifterna som ${inviterName}, och ingen av er kan ta bort den andra.`,
+  acceptJoin: "Gå med",
+  acceptSignIn: "Logga in för att gå med",
+  acceptDecline: "Nej tack",
+  acceptFootnote:
+    "Barntillväxt är ingen journal och ersätter inte BVC. Uppgifterna är de föräldrarna själva fört in från BVC-kortet.",
+  acceptAlreadyMember: (childName: string) => `Du har redan tillgång till ${childName}.`,
+  acceptOpenChild: "Öppna barnet",
+
+  linkDead: {
+    title: "Länken fungerar inte längre",
+    used: "Länken är redan använd. Varje länk gäller en gång, och den som öppnade den först är den som fick tillgång. Be om en ny länk om det inte var du.",
+    expired:
+      "Länken har gått ut. En länk gäller i sju dagar. Be den som delade barnet att skapa en ny.",
+    missing:
+      "Den här länken stämmer inte. Kontrollera att hela adressen kom med — en länk som delats i ett meddelande blir ibland avklippt.",
+    failed: "Det gick inte att gå med just nu. Försök igen, eller be om en ny länk.",
+  },
+  back: "Tillbaka",
+} as const;
+
+/**
+ * What a view-only user is told, first thing, instead of finding out by
+ * noticing what is missing. The reading and the attention card are not hidden
+ * from them as a punishment — they interpret, and interpreting belongs to the
+ * person who will ring BVC.
+ */
+export const VIEW_ONLY = {
+  title: (childName: string) => `Du ser ${childName}s kurvor`,
+  body: (childName: string) =>
+    `Du kan följa mätningarna men inte ändra dem. Tolkningen och kontakten med BVC ligger hos ${childName}s vårdnadshavare.`,
+};
+
+/**
+ * "lagt in av Erik", under a measurement, and only when the child is actually
+ * shared — a parent alone does not need to be told they entered their own data.
+ *
+ * The design's prototype falls back to "dig" for a measurement with no recorded
+ * author. Here that fallback is dropped: rows written before attribution
+ * existed, or by an account since deleted, are genuinely unknown, and guessing
+ * "dig" would put someone else's entry in your name.
+ */
+export const ATTRIBUTION = {
+  by: (personName: string) => `lagt in av ${personName}`,
+  you: "dig",
+  column: "Inlagt av",
+};
+
+/** A child that is no longer shared with you, which is state and not a message. */
+export const ACCESS_ENDED = {
+  title: "Du har inte längre tillgång",
+  body: "Barnet visas inte här längre. Var det delat med dig har den som delade det tagit bort din tillgång — det sker utan meddelande, och uppgifterna finns kvar hos vårdnadshavarna.",
+  back: "Till dina barn",
 };
 
 export const BVC_CARD = {
@@ -109,6 +243,15 @@ export const CHILD_FORM = {
   remove: "Ta bort barn",
   removeConfirm:
     "Barnet och alla dess mätningar tas bort. Det går inte att ångra.",
+  /**
+   * Not in the design handover. Deleting a shared child would remove the
+   * measurements for the other guardian too, which is the thing "ingen av er
+   * kan ta bort den andra" exists to prevent — so it is refused while more than
+   * one person shares the responsibility, and the refusal says why. Needs the
+   * same sign-off as the permanence rule itself.
+   */
+  removeSharedBlocked: (childName: string) =>
+    `${childName} delas med någon som också ansvarar för uppgifterna. Därför går barnet inte att ta bort här — det skulle ta bort mätningarna för er båda.`,
 };
 
 export const MEASUREMENT_FORM = {
@@ -361,6 +504,7 @@ export const NAV = {
   overview: "Översikt",
   charts: "Tillväxtkurvor",
   measurements: "Mätningar",
+  access: "Tillgång",
   addMeasurement: "Lägg till mätning",
   back: "Tillbaka",
   switch: "byt ▾",

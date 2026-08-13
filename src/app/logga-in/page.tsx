@@ -3,7 +3,16 @@ import { AuthForm } from "./auth-form";
 import { APP_NAME, AUTH, NAV } from "@/lib/copy";
 import { BrandMark } from "@/components/brand-mark";
 
-export default function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ retur?: string }>;
+}) {
+  // An invite link sends a signed-out visitor here and wants them back
+  // afterwards. The value is checked again in the action before anyone is
+  // redirected anywhere.
+  const { retur } = await searchParams;
+
   return (
     <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col gap-7 px-6 py-9">
       <div className="mt-6 flex flex-col gap-3.5">
@@ -15,7 +24,7 @@ export default function SignInPage() {
       </div>
 
       <div className="rounded-[14px] border border-border bg-surface p-[18px]">
-        <AuthForm />
+        <AuthForm returnTo={retur} />
       </div>
 
       <Link href="/om-kurvorna" className="text-sm font-semibold text-accent">

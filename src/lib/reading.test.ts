@@ -19,7 +19,15 @@ function m(
   lengthCm: number | null = null,
   headCm: number | null = null,
 ): Measurement {
-  return { id: `m${++counter}`, childId: child.id, measuredOn, weightKg, lengthCm, headCm };
+  return {
+    id: `m${++counter}`,
+    childId: child.id,
+    measuredOn,
+    weightKg,
+    lengthCm,
+    headCm,
+    createdBy: null,
+  };
 }
 
 describe("the home reading", () => {

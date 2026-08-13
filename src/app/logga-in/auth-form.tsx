@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, Input } from "@/components/ui/input";
 import { AUTH } from "@/lib/copy";
 
-export function AuthForm() {
+export function AuthForm({ returnTo }: { returnTo?: string }) {
   const [mode, setMode] = React.useState<"in" | "up">("in");
   const action = mode === "in" ? signInAction : signUpAction;
   const [state, formAction, pending] = useActionState<FormState, FormData>(action, null);
@@ -15,6 +15,7 @@ export function AuthForm() {
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
+      {returnTo ? <input type="hidden" name="retur" value={returnTo} /> : null}
       <Field label={AUTH.email} error={errors.email}>
         <Input type="email" name="email" autoComplete="email" required />
       </Field>

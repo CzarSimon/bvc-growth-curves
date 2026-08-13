@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { MeasurementForm } from "@/components/measurement-form";
-import { getChild } from "@/lib/db";
+import { getChild, getMyRole } from "@/lib/db";
 import { ageDays } from "@/lib/child-data";
+import { canEdit } from "@/lib/access";
 import { MEASUREMENT_FORM } from "@/lib/copy";
 import { formatAge, todayIso } from "@/lib/format";
 
@@ -15,8 +16,11 @@ export default async function NewMeasurementPage({
 }) {
   const { childId } = await params;
   const { retur } = await searchParams;
-  const child = await getChild(childId);
+  const [child, myRole] = await Promise.all([getChild(childId), getMyRole(childId)]);
   if (!child) notFound();
+  // The database refuses the insert for a view-only user; this is so the form
+  // is never shown to someone who would only be told "no" after typing.
+  if (!canEdit(myRole)) redirect(`/barn/${childId}`);
   const today = todayIso();
   // Adding from the history page should land back on it, so a parent filling in
   // several measurements from the BVC card stays where the list is.

@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getChild } from "@/lib/db";
-import { AUTH, VALIDATION } from "@/lib/copy";
+import { AUTH, SHARE, VALIDATION } from "@/lib/copy";
+import { INVITE_ROLE, type SharedRole } from "@/lib/access";
+import { hashInviteToken, inviteUrl, newInviteToken } from "@/lib/invite";
 import {
   validateChild,
   validateMeasurement,
@@ -22,6 +24,17 @@ function field(formData: FormData, name: string): string {
   return typeof value === "string" ? value : "";
 }
 
+/**
+ * Where to go after signing in. An invite link sends a signed-out visitor here
+ * and wants them back afterwards, so this value comes off a query string and is
+ * only ever a path on this site — anything else is somebody else's idea of
+ * where the user should end up.
+ */
+function safeReturnTo(raw: string, fallback: string): string {
+  const ok = raw.startsWith("/") && !raw.startsWith("//") && !/[\\\s]/.test(raw);
+  return ok ? raw : fallback;
+}
+
 // ------------------------------------------------------------------- auth --
 
 export async function signInAction(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -35,7 +48,7 @@ export async function signInAction(_prev: FormState, formData: FormData): Promis
   if (error) return fail({ form: AUTH.errors.invalid });
 
   revalidatePath("/", "layout");
-  redirect("/barn");
+  redirect(safeReturnTo(field(formData, "retur"), "/barn"));
 }
 
 export async function signUpAction(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -52,7 +65,7 @@ export async function signUpAction(_prev: FormState, formData: FormData): Promis
   }
 
   revalidatePath("/", "layout");
-  redirect("/barn");
+  redirect(safeReturnTo(field(formData, "retur"), "/barn"));
 }
 
 export async function signOutAction() {
@@ -213,4 +226,75 @@ export async function deleteMeasurementAction(formData: FormData) {
   await supabase.from("measurements").delete().eq("id", measurementId);
   revalidatePath(`/barn/${childId}`, "layout");
   redirect(field(formData, "returnTo") || `/barn/${childId}/matningar`);
+}
+
+// ------------------------------------------------------------------ sharing --
+
+export type InviteState = { link: string; role: SharedRole } | { error: string } | null;
+
+/**
+ * Make an invite link. The role is written into the invite row here and read
+ * back out of it when someone joins, so the person opening the link never gets
+ * to say what they are joining as — forwarding a link cannot escalate it.
+ *
+ * The token is returned to this screen and stored only as a hash. Making a new
+ * link kills the caller's previous unused one for this child, which is what
+ * "Ny länk" means to a parent who sent the first one to the wrong number.
+ */
+export async function createInviteAction(
+  _prev: InviteState,
+  formData: FormData,
+): Promise<InviteState> {
+  const childId = field(formData, "childId");
+  const role: SharedRole = field(formData, "role") === "guardian" ? "guardian" : "viewer";
+  const token = newInviteToken();
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("create_child_invite", {
+    p_child_id: childId,
+    p_role: INVITE_ROLE[role],
+    p_token_hash: hashInviteToken(token),
+  });
+  // Refused for a child the caller does not co-manage, among other things. The
+  // screen says the link could not be made rather than why: a view-only user
+  // who reached this form has no business being told more.
+  if (error) return { error: SHARE.linkFailed };
+
+  return { link: await inviteUrl(token), role };
+}
+
+/**
+ * Remove someone's view-only access. The database refuses this for a co-manager
+ * whatever the form says, and nobody is notified — the child simply stops
+ * appearing in their app.
+ */
+export async function revokeAccessAction(formData: FormData) {
+  const childId = field(formData, "childId");
+  const userId = field(formData, "userId");
+  const supabase = await createClient();
+  await supabase.rpc("revoke_child_access", { p_child_id: childId, p_user_id: userId });
+  revalidatePath(`/barn/${childId}`, "layout");
+  redirect(`/barn/${childId}/tillgang`);
+}
+
+/**
+ * Take an invite. Everything that decides the outcome — which child, which
+ * role, whether the link is still good — is read from the invite row inside the
+ * database; the only thing sent from here is the token itself.
+ */
+export async function acceptInviteAction(formData: FormData) {
+  const token = field(formData, "token");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("accept_child_invite", {
+    p_token_hash: hashInviteToken(token),
+  });
+
+  if (error || !data) {
+    // Back to the link, which re-reads its own state and says what happened. A
+    // race — two people opening the same link — lands here as "already used".
+    redirect(`/i/${encodeURIComponent(token)}?fel=1`);
+  }
+
+  revalidatePath("/barn", "layout");
+  redirect(`/barn/${data as string}`);
 }

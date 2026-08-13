@@ -31,6 +31,11 @@ export type Measurement = {
   weightKg: number | null;
   lengthCm: number | null;
   headCm: number | null;
+  /**
+   * Who entered it, for "lagt in av Erik" in a shared child. Null for rows
+   * written before attribution existed and for an account since deleted.
+   */
+  createdBy: string | null;
 };
 
 export type CurvePoint = {
