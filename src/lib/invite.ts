@@ -2,7 +2,10 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 import { headers } from "next/headers";
+import { INVITE_PATH } from "./invite-path";
 import { SITE_URL } from "./site";
+
+export { INVITE_PATH };
 
 /**
  * Invite tokens.
@@ -32,8 +35,6 @@ export function hashInviteToken(token: string): string {
 export function isPlausibleToken(token: string): boolean {
   return /^[A-Za-z0-9_-]{16,64}$/.test(token);
 }
-
-export const INVITE_PATH = "/i";
 
 /**
  * Where the link points. The deployment's own origin rather than the

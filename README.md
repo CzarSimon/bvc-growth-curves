@@ -263,6 +263,45 @@ answer changes:
   exists to prevent, so it is refused while a second co-manager exists. A joint
   delete, or one the other must confirm, is the obvious next design.
 
+### Why invite links are not brute-forceable
+
+The token is 128 random bits (`randomBytes(16)`, base64url, 22 characters). With
+10,000 live invites, a random guess hits one with probability ~3 × 10⁻³⁵; a year
+of sustained 1,000 requests per second is ~3 × 10¹⁰ guesses, so the expected
+number of hits is ~10⁻²⁴. Nothing needs to stand in front of that.
+
+**The length is the whole defence, and it is the thing most likely to be
+"tidied".** The design's prototype shows a six-character code, which would be
+36⁶ ≈ 2.2 × 10⁹ — sweepable in days at modest request rates, and with a few
+thousand live invites you would land on one within minutes. Shortening the token
+is what would turn rate limiting from a nicety into the only thing holding the
+door. `src/lib/invite.ts` says so at the definition; keep it there.
+
+What that argument does *not* cover:
+
+- **Abuse.** Nothing stops someone hammering `child_invite_preview` and burning
+  database CPU. That is a denial-of-service and billing problem, and the cheapest
+  answer is a Vercel Firewall rate-limit rule on `/i/*` rather than code — an
+  in-process counter does not survive serverless, so a code-level limiter means
+  KV or Upstash.
+- **The link getting away from its owner**, which is the realistic threat and the
+  one the copy names out loud: whoever opens it first is who gets in. Single use
+  and seven days bound the window. A PIN sent out of band would close it
+  properly, but a 4–6 digit PIN is 10⁴–10⁶ wide and would itself need an attempt
+  limit — it is "PIN *and* throttling", never "PIN *instead of*". Worth deciding
+  for `Delar ansvaret` alone, where the grant is permanent.
+- **The token sitting in a URL.** `next.config.ts` sends `Referrer-Policy:
+  no-referrer` and `X-Robots-Tag: noindex` on `/i/*`, so a link on that page
+  cannot leak the token in a `Referer` header and a pasted link cannot be
+  indexed. Vercel's access logs still record the path. Moving the token into the
+  URL fragment would fix that and would change how the page works — it could no
+  longer be read on the server.
+
+Link unfurling is safe and should stay that way: the invite page sets no
+per-page OpenGraph metadata, so a preview in a group chat shows the app's
+generic title rather than the child's name, and a crawler cannot consume an
+invite — accepting one takes an authenticated POST.
+
 ### Data model
 
 Access is a membership join table, not an owner column on the child:
@@ -314,9 +353,9 @@ GDPR export and delete are not built. Neither is leaving a child you were shared
 into, expiring view-only access, or deleting a child that two people co-manage —
 see the three open decisions under "Sharing a child".
 
-Invite links are not rate limited. The token is 128 bits, so guessing one is not
-a realistic attack, but there is nothing in front of `child_invite_preview` that
-would notice someone trying.
+Invite links are not rate limited. This is a cost and availability gap, not a
+confidentiality one, and the two are worth keeping apart — see "Why invite links
+are not brute-forceable" below.
 
 Preterm children (under 37 weeks) are out of scope: the app says so rather than
 silently plotting them on term curves.
