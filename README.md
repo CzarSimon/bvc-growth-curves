@@ -117,6 +117,14 @@ will disagree. Verify the punycode against the registrar's own conversion before
 buying anything — the brand handoff quotes `xn--barntillvxt-p5a`, which is not a
 valid encoding of this label.
 
+**The invite link is the deliberate exception to "any href".** It is the one URL
+in the product that a person reads, sends to someone else and vouches for, and
+`xn--barntillvxt-t8a.se/i/WpM-…` in a text message is what a phishing link looks
+like — a bad thing to send someone you are asking to trust you with a child's
+health data. `inviteUrl()` decodes the host it built the link from, so both the
+displayed and the copied link are `barntillväxt.se/i/CODE`. Browsers re-encode
+it before resolving anything, and the app never fetches the string.
+
 Still to do when the domain is actually registered, none of it in this repo:
 
 - Register the ASCII fallback `barntillvaxt.se` too and 301 it to the primary.
