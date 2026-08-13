@@ -209,6 +209,99 @@ displaced by exactly the divergence the extraction recorded between the chart
 and the table. The chart is ground truth — it is what BVC plots on — and the
 disagreement is surfaced at `/om-kurvorna` rather than corrected away.
 
+### Sharing a child
+
+Two roles, one link, and one asymmetry that carries the whole design.
+
+| role | in the UI | can | removable |
+|---|---|---|---|
+| `owner` | **Delar ansvaret** | everything the first parent can do | **never, by anyone** |
+| `viewer` | **Kan se** | curves, measurements, the projection | yes, by any co-manager |
+
+Permanence attaches to the role, not to the link. Sharing is open to whoever
+holds the link, so a permanent role behind a forwardable link would hand a
+stranger unrevocable access to a child's health data; splitting it by role keeps
+the custody stance — two guardians cannot shut each other out — while leaving
+view-only access revocable, which is what makes an access screen possible at
+all. Every co-manager is equal: there is no primary account and no original
+owner.
+
+A link is an invite, not access. The role is written into the invite row before
+the link exists, it is single use, it expires after seven days, and the parent
+sends it themselves — no email collection, no delivery infrastructure. The token
+lives in the link only; the database stores its SHA-256, so a leaked backup
+cannot be replayed into access.
+
+**A view-only user gets a different composition, not a greyed-out one.** They
+see the curves, the measurement list and the projection. They do not see the
+reading, the attention card, or any way to add or edit — the reading interprets
+and the attention card routes to BVC, and both belong to the person who will
+make the call. The home screen says so in a sentence rather than leaving them to
+notice what is missing.
+
+Nobody is notified about anything: not when a measurement is added, not when
+access is revoked. The one place that cannot hold is state rather than a
+message — a child that has stopped being shared with you disappears, and
+`src/app/barn/not-found.tsx` says why instead of showing a bare 404.
+
+None of this is enforced in the UI. Every rule above is an RLS policy or a
+`security definer` function, and `supabase/tests/rls.sql` exercises them: a
+"Kan se" user who POSTs a measurement is refused by Postgres, a co-manager
+cannot be deleted by any route, and a used or expired link cannot be redeemed.
+
+Three decisions the design handover left open, all of them additive if the
+answer changes:
+
+- **A co-manager cannot leave.** "Neither can remove the other" does not settle
+  whether you can remove yourself; nothing here lets you. If leaving should be
+  possible, it is one delete policy.
+- **View-only access does not expire.** A childminder keeps access until someone
+  revokes it. Adding expiry is a nullable column and a clause in
+  `has_child_access`.
+- **A shared child cannot be deleted at all.** Deleting it would take the
+  measurements away from the other guardian too, which is what permanence
+  exists to prevent, so it is refused while a second co-manager exists. A joint
+  delete, or one the other must confirm, is the obvious next design.
+
+### Why invite links are not brute-forceable
+
+The token is 128 random bits (`randomBytes(16)`, base64url, 22 characters). With
+10,000 live invites, a random guess hits one with probability ~3 × 10⁻³⁵; a year
+of sustained 1,000 requests per second is ~3 × 10¹⁰ guesses, so the expected
+number of hits is ~10⁻²⁴. Nothing needs to stand in front of that.
+
+**The length is the whole defence, and it is the thing most likely to be
+"tidied".** The design's prototype shows a six-character code, which would be
+36⁶ ≈ 2.2 × 10⁹ — sweepable in days at modest request rates, and with a few
+thousand live invites you would land on one within minutes. Shortening the token
+is what would turn rate limiting from a nicety into the only thing holding the
+door. `src/lib/invite.ts` says so at the definition; keep it there.
+
+What that argument does *not* cover:
+
+- **Abuse.** Nothing stops someone hammering `child_invite_preview` and burning
+  database CPU. That is a denial-of-service and billing problem, and the cheapest
+  answer is a Vercel Firewall rate-limit rule on `/i/*` rather than code — an
+  in-process counter does not survive serverless, so a code-level limiter means
+  KV or Upstash.
+- **The link getting away from its owner**, which is the realistic threat and the
+  one the copy names out loud: whoever opens it first is who gets in. Single use
+  and seven days bound the window. A PIN sent out of band would close it
+  properly, but a 4–6 digit PIN is 10⁴–10⁶ wide and would itself need an attempt
+  limit — it is "PIN *and* throttling", never "PIN *instead of*". Worth deciding
+  for `Delar ansvaret` alone, where the grant is permanent.
+- **The token sitting in a URL.** `next.config.ts` sends `Referrer-Policy:
+  no-referrer` and `X-Robots-Tag: noindex` on `/i/*`, so a link on that page
+  cannot leak the token in a `Referer` header and a pasted link cannot be
+  indexed. Vercel's access logs still record the path. Moving the token into the
+  URL fragment would fix that and would change how the page works — it could no
+  longer be read on the server.
+
+Link unfurling is safe and should stay that way: the invite page sets no
+per-page OpenGraph metadata, so a preview in a group chat shows the app's
+generic title rather than the child's name, and a crawler cannot consume an
+invite — accepting one takes an authenticated POST.
+
 ### Data model
 
 Access is a membership join table, not an owner column on the child:
@@ -216,12 +309,19 @@ Access is a membership join table, not an owner column on the child:
 ```
 children        no owner_id
 child_members   (child_id, user_id, role) with roles owner / editor / viewer
+child_invites   one row per link: child, role, sha256 of the token, expiry, use
+profiles        display name per user, derived from the email at sign-up
 measurements    nullable weight_grams, length_mm, head_mm — any one may stand alone
+                created_by, stamped by a trigger, for "lagt in av Erik"
 ```
 
-The prototype only ever creates one `owner` membership per child and has no
-sharing UI, but adding a second parent or read-only access later is a row
-rather than a migration that rewrites ownership.
+`editor` is in the enum and unused: it predates the design and would be a third,
+weaker co-manager. Sharing creates `owner` and `viewer` rows only.
+
+Names exist because sharing needs them — `auth.users` is not readable by the
+application roles, and an access screen that cannot name anyone is useless. A
+profile is created by a trigger on sign-up and its display name is derived from
+the email's local part; there is no screen for editing it yet.
 
 Weight is stored in whole grams and lengths in whole millimetres. Medical
 values do not go in floats. `measured_on` is the day the child was measured and
@@ -229,8 +329,9 @@ is distinct from `created_at`, because a parent copying in from the BVC card
 backfills months later.
 
 Row-level security is on from the first migration and every policy is written
-against the membership table. `supabase/tests/rls.sql` exercises it with two
-users; loosening any policy makes it fail.
+against the membership table. `supabase/tests/rls.sql` exercises it with three
+users — a co-manager, a second co-manager and a view-only guest — and loosening
+any policy makes it fail.
 
 ### Copy
 
@@ -240,9 +341,21 @@ text is the highest-risk surface in the product and should be reviewable in one
 sitting. **It has not been read by a BVC nurse yet, and should be before this
 goes anywhere near a real parent.**
 
+The sharing copy comes verbatim from the design handover, apart from four
+strings written here and flagged in the file: the three dead-link states (used,
+expired, wrong), and the refusal to delete a child that two people co-manage.
+The permanence rule and the no-notification rule both have GDPR and custody
+implications and need the same sign-off as the clinical copy.
+
 ## What is not built
 
-Multi-user sharing, read-only access, and GDPR export and delete are out of
-scope for the prototype. The schema is ready for them; there is no UI.
+GDPR export and delete are not built. Neither is leaving a child you were shared
+into, expiring view-only access, or deleting a child that two people co-manage —
+see the three open decisions under "Sharing a child".
+
+Invite links are not rate limited. This is a cost and availability gap, not a
+confidentiality one, and the two are worth keeping apart — see "Why invite links
+are not brute-forceable" below.
+
 Preterm children (under 37 weeks) are out of scope: the app says so rather than
 silently plotting them on term curves.

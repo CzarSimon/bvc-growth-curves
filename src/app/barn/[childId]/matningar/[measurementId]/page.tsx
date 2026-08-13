@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { MeasurementForm } from "@/components/measurement-form";
-import { getChild, getMeasurement } from "@/lib/db";
+import { getChild, getMeasurement, getMyRole } from "@/lib/db";
 import { ageDays } from "@/lib/child-data";
+import { canEdit } from "@/lib/access";
 import { MEASUREMENT_FORM } from "@/lib/copy";
 import { formatAge, todayIso } from "@/lib/format";
 
@@ -12,11 +13,13 @@ export default async function EditMeasurementPage({
   params: Promise<{ childId: string; measurementId: string }>;
 }) {
   const { childId, measurementId } = await params;
-  const [child, measurement] = await Promise.all([
+  const [child, measurement, myRole] = await Promise.all([
     getChild(childId),
     getMeasurement(measurementId),
+    getMyRole(childId),
   ]);
   if (!child || !measurement || measurement.childId !== child.id) notFound();
+  if (!canEdit(myRole)) redirect(`/barn/${childId}/matningar`);
   const today = todayIso();
   const history = `/barn/${child.id}/matningar`;
 

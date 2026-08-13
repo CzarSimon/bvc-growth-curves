@@ -19,8 +19,18 @@ grant select, insert on t to authenticated, anon;
 
 insert into auth.users (id) values
   ('11111111-1111-1111-1111-111111111111'),
-  ('22222222-2222-2222-2222-222222222222')
+  ('22222222-2222-2222-2222-222222222222'),
+  ('33333333-3333-3333-3333-333333333333')
 on conflict do nothing;
+
+-- Names for the sharing tests. Updating the email is also what the profile
+-- trigger listens for, so this exercises its update path.
+update auth.users set email = 'erik.svensson@example.com'
+ where id = '11111111-1111-1111-1111-111111111111';
+update auth.users set email = 'ingrid@example.com'
+ where id = '22222222-2222-2222-2222-222222222222';
+update auth.users set email = 'moa@example.com'
+ where id = '33333333-3333-3333-3333-333333333333';
 
 create or replace function pg_temp.act_as(uid text) returns void
 language plpgsql as $$
@@ -180,6 +190,245 @@ select pg_temp.expect((select count(*) from public.measurements) = 0,
 reset role;
 select pg_temp.expect((select count(*) from public.child_members) = 0,
   'deleting a child should cascade to its memberships');
+
+-- ------------------------------------------------------------------ sharing --
+--
+-- The rules the design states in Swedish, checked as SQL. A "Kan se" user who
+-- POSTs a measurement has to be refused by Postgres, not by a missing button,
+-- and a co-manager has to be unremovable by every route there is.
+
+set role authenticated;
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+
+select pg_temp.expect(
+  (select display_name from public.profiles
+    where id = '11111111-1111-1111-1111-111111111111') = 'Erik Svensson',
+  'the profile trigger should derive a display name from the email');
+
+insert into t values ('shared', public.create_child('Vega', 'female', date '2026-01-05', 40::smallint, 0::smallint)::text);
+
+insert into public.measurements (child_id, measured_on, weight_grams, length_mm)
+values ((select value::uuid from t where key = 'shared'), date '2026-01-05', 3480, 500);
+
+select pg_temp.expect(
+  (select created_by from public.measurements
+    where child_id = (select value::uuid from t where key = 'shared'))
+    = '11111111-1111-1111-1111-111111111111',
+  'a measurement should be stamped with its author');
+
+-- A caller writing someone else's id into created_by is overwritten, not
+-- trusted: attribution is the database's to say.
+insert into public.measurements (child_id, measured_on, weight_grams, created_by)
+values ((select value::uuid from t where key = 'shared'), date '2026-02-05', 4600,
+        '22222222-2222-2222-2222-222222222222');
+select pg_temp.expect(
+  (select count(*) from public.measurements
+    where child_id = (select value::uuid from t where key = 'shared')
+      and created_by = '22222222-2222-2222-2222-222222222222') = 0,
+  'created_by should be stamped by the database, not by the caller');
+
+-- ------------------------------------------------------- an invite, in full --
+
+select public.create_child_invite(
+  (select value::uuid from t where key = 'shared'), 'viewer', repeat('a', 64));
+
+select pg_temp.expect_denied(
+  format('select public.create_child_invite(%L, ''owner'', ''nothexadecimal'')',
+         (select value from t where key = 'shared')),
+  'an invite whose token hash is not a sha256');
+
+-- Nobody selects from the invite table, including the person who made the row.
+select pg_temp.expect_denied('select count(*) from public.child_invites',
+  'reading the invite table directly');
+
+-- ------------------------------------------------------------- as Ingrid, B --
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+
+select pg_temp.expect(
+  (select status from public.child_invite_preview(repeat('a', 64))) = 'ok',
+  'a live invite should preview as usable');
+select pg_temp.expect(
+  (select child_name from public.child_invite_preview(repeat('a', 64))) = 'Vega',
+  'the preview should name the child');
+select pg_temp.expect(
+  (select invited_by from public.child_invite_preview(repeat('a', 64))) = 'Erik Svensson',
+  'the preview should name who is sharing');
+select pg_temp.expect(
+  (select status from public.child_invite_preview(repeat('f', 64))) = 'missing',
+  'an unknown token should preview as missing');
+select pg_temp.expect(
+  (select child_name from public.child_invite_preview(repeat('f', 64))) is null,
+  'a dead link must not reveal a child');
+
+select pg_temp.expect(
+  public.accept_child_invite(repeat('a', 64)) = (select value::uuid from t where key = 'shared'),
+  'accepting an invite should return the child');
+select pg_temp.expect(
+  (select public.my_child_role((select value::uuid from t where key = 'shared'))) = 'viewer',
+  'the role should come off the invite row');
+
+select pg_temp.expect((select count(*) from public.children) = 1, 'B should now see the child');
+select pg_temp.expect((select count(*) from public.measurements) = 2,
+  'B should see the measurements');
+
+-- ------------------------------------------------ what "Kan se" cannot do --
+
+select pg_temp.expect_denied(
+  format('insert into public.measurements (child_id, measured_on, weight_grams) values (%L, date ''2026-03-05'', 5200)',
+         (select value from t where key = 'shared')),
+  'a view-only user adding a measurement');
+
+update public.measurements set weight_grams = 9000;
+select pg_temp.expect((select count(*) from public.measurements where weight_grams = 9000) = 0,
+  'a view-only user must not be able to edit a measurement');
+
+delete from public.measurements;
+select pg_temp.expect((select count(*) from public.measurements) = 2,
+  'a view-only user must not be able to delete a measurement');
+
+update public.children set name = 'Bytt';
+select pg_temp.expect((select count(*) from public.children where name = 'Bytt') = 0,
+  'a view-only user must not be able to rename the child');
+
+delete from public.children;
+select pg_temp.expect((select count(*) from public.children) = 1,
+  'a view-only user must not be able to delete the child');
+
+select pg_temp.expect_denied(
+  format('select public.create_child_invite(%L, ''viewer'', %L)',
+         (select value from t where key = 'shared'), repeat('b', 64)),
+  'a view-only user inviting someone');
+
+select pg_temp.expect_denied(
+  format('select public.revoke_child_access(%L, ''11111111-1111-1111-1111-111111111111'')',
+         (select value from t where key = 'shared')),
+  'a view-only user revoking a co-manager');
+
+-- A view-only user cannot let themselves out either. Leaving is not designed
+-- yet, and the schema does not quietly allow it.
+delete from public.child_members where user_id = '22222222-2222-2222-2222-222222222222';
+select pg_temp.expect(
+  (select public.my_child_role((select value::uuid from t where key = 'shared'))) = 'viewer',
+  'a view-only user must not be able to remove themselves');
+
+-- They do see the household, which is the access screen's own data.
+select pg_temp.expect(
+  (select count(*) from public.child_access((select value::uuid from t where key = 'shared'))) = 2,
+  'everyone with access should see who else has access');
+select pg_temp.expect(
+  (select display_name from public.child_access((select value::uuid from t where key = 'shared'))
+    where not is_self) = 'Erik Svensson',
+  'the access list should carry names');
+
+-- ------------------------------------------------------ single use, expiry --
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+
+select pg_temp.expect(
+  (select status from public.child_invite_preview(repeat('a', 64))) = 'used',
+  'a used invite should preview as used');
+select pg_temp.expect_denied(
+  format('select public.accept_child_invite(%L)', repeat('a', 64)),
+  'a second person taking the same link');
+select pg_temp.expect(
+  (select public.my_child_role((select value::uuid from t where key = 'shared'))) is null,
+  'the second person should have no access');
+
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+select public.create_child_invite(
+  (select value::uuid from t where key = 'shared'), 'viewer', repeat('c', 64));
+reset role;
+update public.child_invites set expires_at = now() - interval '1 day'
+ where token_hash = repeat('c', 64);
+set role authenticated;
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select pg_temp.expect(
+  (select status from public.child_invite_preview(repeat('c', 64))) = 'expired',
+  'an invite past seven days should preview as expired');
+select pg_temp.expect_denied(
+  format('select public.accept_child_invite(%L)', repeat('c', 64)),
+  'accepting an expired invite');
+
+-- ----------------------------------------------- a second co-manager, for good --
+
+select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
+select public.create_child_invite(
+  (select value::uuid from t where key = 'shared'), 'owner', repeat('d', 64));
+
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
+select public.accept_child_invite(repeat('d', 64));
+select pg_temp.expect(
+  (select public.my_child_role((select value::uuid from t where key = 'shared'))) = 'owner',
+  'a co-manager invite should grant co-management');
+
+insert into public.measurements (child_id, measured_on, weight_grams)
+values ((select value::uuid from t where key = 'shared'), date '2026-03-05', 5200);
+select pg_temp.expect((select count(*) from public.measurements) = 3,
+  'a co-manager should be able to add a measurement');
+
+-- Neither can remove the other, by either route.
+select pg_temp.expect_denied(
+  format('select public.revoke_child_access(%L, ''11111111-1111-1111-1111-111111111111'')',
+         (select value from t where key = 'shared')),
+  'a co-manager removing the other co-manager');
+
+delete from public.child_members where user_id = '11111111-1111-1111-1111-111111111111';
+select pg_temp.expect(
+  (select count(*) from public.child_members
+    where child_id = (select value::uuid from t where key = 'shared')) = 3,
+  'a co-manager must not be removable by a direct delete either');
+
+-- Nor demote them: there is no update policy on child_members at all, so a role
+-- only ever changes by taking an invite.
+update public.child_members set role = 'viewer'
+ where user_id = '11111111-1111-1111-1111-111111111111';
+select pg_temp.expect(
+  (select count(*) from public.child_members
+    where child_id = (select value::uuid from t where key = 'shared')
+      and role = 'owner') = 2,
+  'a co-manager must not be demotable');
+
+-- Nor can one of them delete the child out from under the other, which would be
+-- the same thing by another name.
+delete from public.children;
+select pg_temp.expect((select count(*) from public.children) = 1,
+  'a shared child must not be deletable by one of its co-managers');
+
+-- Editing someone else's measurement is allowed; rewriting who entered it is
+-- not. Attribution survives the edit.
+update public.measurements set weight_grams = 3500
+ where measured_on = date '2026-01-05';
+select pg_temp.expect(
+  (select created_by from public.measurements where measured_on = date '2026-01-05')
+    = '11111111-1111-1111-1111-111111111111',
+  'editing a measurement must not move its authorship');
+
+-- ------------------------------------------------------------- revoking B --
+
+select pg_temp.expect(
+  (select count(*) from public.child_access((select value::uuid from t where key = 'shared'))) = 3,
+  'three people should have access before the revoke');
+
+select public.revoke_child_access(
+  (select value::uuid from t where key = 'shared'), '22222222-2222-2222-2222-222222222222');
+
+select pg_temp.expect(
+  (select count(*) from public.child_access((select value::uuid from t where key = 'shared'))) = 2,
+  'revoking should remove the membership');
+
+select pg_temp.act_as('22222222-2222-2222-2222-222222222222');
+select pg_temp.expect((select count(*) from public.children) = 0,
+  'a revoked user should stop seeing the child');
+select pg_temp.expect((select count(*) from public.measurements) = 0,
+  'a revoked user should stop seeing the measurements');
+select pg_temp.expect(
+  (select count(*) from public.child_access((select value::uuid from t where key = 'shared'))) = 0,
+  'a revoked user should not be able to read the access list');
+select pg_temp.expect(
+  (select count(*) from public.profiles) = 1,
+  'a user should only ever see their own profile row');
 
 \echo 'RLS tests passed'
 

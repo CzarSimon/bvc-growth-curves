@@ -6,9 +6,10 @@
  * fall outside the reference, and a child whose weight has drifted enough to
  * raise the card.
  */
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToReadableStream } from "react-dom/server";
 import type { Child, Measurement } from "@/lib/child-data";
+import type { AccessMember, ChildRole } from "@/lib/access";
 
 const child: Child = {
   id: "c1",
@@ -20,12 +21,24 @@ const child: Child = {
 };
 
 let measurements: Measurement[] = [];
+let myRole: ChildRole = "owner";
+
+const me: AccessMember = {
+  userId: "u1",
+  displayName: "Du",
+  role: "owner",
+  since: "2025-08-10T09:00:00Z",
+  isSelf: true,
+};
+let access: AccessMember[] = [me];
 
 vi.mock("@/lib/db", () => ({
   getChild: async () => child,
   listChildren: async () => [child],
   listMeasurements: async () => measurements,
   getMeasurement: async () => null,
+  getMyRole: async () => myRole,
+  listChildAccess: async () => access,
 }));
 
 const { default: ChildHomePage } = await import("./page");
@@ -37,7 +50,15 @@ function m(
   lengthCm: number | null = null,
   headCm: number | null = null,
 ): Measurement {
-  return { id: `m${++counter}`, childId: child.id, measuredOn, weightKg, lengthCm, headCm };
+  return {
+    id: `m${++counter}`,
+    childId: child.id,
+    measuredOn,
+    weightKg,
+    lengthCm,
+    headCm,
+    createdBy: null,
+  };
 }
 
 async function renderHome(): Promise<string> {
@@ -48,6 +69,11 @@ async function renderHome(): Promise<string> {
 }
 
 describe("the home screen", () => {
+  beforeEach(() => {
+    myRole = "owner";
+    access = [me];
+  });
+
   it("renders the empty state without a chart point or a verdict", async () => {
     measurements = [];
     const html = await renderHome();
@@ -92,6 +118,42 @@ describe("the home screen", () => {
     const html = await renderHome();
     expect(html).toContain("Något att ta upp på BVC");
     expect(html).toContain("mer än 1 SD");
+  });
+
+  it("shows who has access as one line", async () => {
+    measurements = [m("2025-10-10", 5.15, 57.0, 38.4)];
+    access = [
+      me,
+      {
+        userId: "u2",
+        displayName: "Erik",
+        role: "owner",
+        since: "2025-09-01T09:00:00Z",
+        isSelf: false,
+      },
+    ];
+    const html = await renderHome();
+    expect(html).toContain("Vem har tillgång");
+    expect(html).toContain("2 personer");
+    expect(html).toContain("du, Erik");
+  });
+
+  it("gives a view-only user the values but not the reading", async () => {
+    myRole = "viewer";
+    measurements = [
+      m("2025-08-15", 4.3, 52.0),
+      m("2025-11-10", 5.6, 60.0),
+      m("2026-02-10", 6.0, 66.0),
+    ];
+    const html = await renderHome();
+    // The same measurements raise the attention card for a guardian.
+    expect(html).toContain("Du ser Elsas kurvor");
+    expect(html).not.toContain("Något att ta upp på BVC");
+    expect(html).not.toContain("Så ser kurvan ut nu");
+    expect(html).not.toContain("Lägg till mätning");
+    // What they do get: the numbers, the curves and the way to BVC.
+    expect(html).toContain("6,000 kg");
+    expect(html).toContain("Fråga BVC när du vill");
   });
 
   it("never shows a status word, a score or the word percentil", async () => {

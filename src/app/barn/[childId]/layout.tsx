@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
-import { getChild, listChildren } from "@/lib/db";
+import { getChild, getMyRole, listChildren } from "@/lib/db";
 import { ageDays } from "@/lib/child-data";
+import { canEdit } from "@/lib/access";
 import { todayIso } from "@/lib/format";
 
 export default async function ChildLayout({
@@ -12,7 +13,11 @@ export default async function ChildLayout({
   params: Promise<{ childId: string }>;
 }) {
   const { childId } = await params;
-  const [child, all] = await Promise.all([getChild(childId), listChildren()]);
+  const [child, all, myRole] = await Promise.all([
+    getChild(childId),
+    listChildren(),
+    getMyRole(childId),
+  ]);
   if (!child) notFound();
 
   const today = todayIso();
@@ -23,7 +28,7 @@ export default async function ChildLayout({
   };
 
   return (
-    <AppShell child={active} childList={summaries}>
+    <AppShell child={active} childList={summaries} canEdit={canEdit(myRole)}>
       {children}
     </AppShell>
   );

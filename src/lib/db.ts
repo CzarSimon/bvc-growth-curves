@@ -1,7 +1,9 @@
 import "server-only";
 
+import { cache } from "react";
 import { createClient } from "./supabase/server";
 import { gramsToKg, mmToCm, type Sex } from "./growth";
+import type { AccessMember, ChildRole } from "./access";
 import type { Child, Measurement } from "./child-data";
 
 type ChildRow = {
@@ -20,6 +22,7 @@ type MeasurementRow = {
   weight_grams: number | null;
   length_mm: number | null;
   head_mm: number | null;
+  created_by: string | null;
 };
 
 function toChild(row: ChildRow): Child {
@@ -41,11 +44,13 @@ function toMeasurement(row: MeasurementRow): Measurement {
     weightKg: row.weight_grams === null ? null : gramsToKg(row.weight_grams),
     lengthCm: row.length_mm === null ? null : mmToCm(row.length_mm),
     headCm: row.head_mm === null ? null : mmToCm(row.head_mm),
+    createdBy: row.created_by,
   };
 }
 
 const CHILD_COLUMNS = "id, name, sex, birth_date, gestation_weeks, gestation_days";
-const MEASUREMENT_COLUMNS = "id, child_id, measured_on, weight_grams, length_mm, head_mm";
+const MEASUREMENT_COLUMNS =
+  "id, child_id, measured_on, weight_grams, length_mm, head_mm, created_by";
 
 /** Row-level security scopes this to the signed-in user's children. */
 export async function listChildren(): Promise<Child[]> {
@@ -89,4 +94,105 @@ export async function getMeasurement(measurementId: string): Promise<Measurement
     .maybeSingle();
   if (error) throw error;
   return data ? toMeasurement(data as MeasurementRow) : null;
+}
+
+// ------------------------------------------------------------------ access --
+
+/**
+ * Whether anyone is signed in. The invite screen is the one screen a person can
+ * reach before they have an account, so it has to ask.
+ */
+export async function isSignedIn(): Promise<boolean> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  return data.user !== null;
+}
+
+/**
+ * The signed-in user's role on a child, or null if they have none.
+ *
+ * A function rather than a select on child_members, so the answer comes from
+ * one round trip and from `auth.uid()` on the database side — the caller never
+ * gets to say who it is.
+ *
+ * Memoised per request: the layout asks (to decide whether the add button
+ * exists) and so does the screen inside it.
+ */
+export const getMyRole = cache(async (childId: string): Promise<ChildRole | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("my_child_role", { p_child_id: childId });
+  if (error) throw error;
+  return (data as ChildRole | null) ?? null;
+});
+
+type AccessRow = {
+  user_id: string;
+  display_name: string;
+  role: ChildRole;
+  since: string;
+  is_self: boolean;
+};
+
+/** Everyone who has access to a child, oldest membership first. */
+export const listChildAccess = cache(async (childId: string): Promise<AccessMember[]> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("child_access", { p_child_id: childId });
+  if (error) throw error;
+  return (data as AccessRow[]).map((row) => ({
+    userId: row.user_id,
+    displayName: row.display_name,
+    role: row.role,
+    since: row.since,
+    isSelf: row.is_self,
+  }));
+});
+
+export type InvitePreview =
+  | {
+      status: "ok";
+      childId: string;
+      childName: string;
+      childSex: Sex;
+      role: ChildRole;
+      invitedBy: string;
+      alreadyMember: boolean;
+    }
+  | { status: "used" | "expired" | "missing" };
+
+type InvitePreviewRow = {
+  status: string;
+  child_id: string | null;
+  child_name: string | null;
+  child_sex: string | null;
+  role: ChildRole | null;
+  invited_by: string | null;
+  already_member: boolean;
+};
+
+/**
+ * What an invite link leads to, readable while signed out — the invitee decides
+ * before they have an account. A link that is used, expired or wrong comes back
+ * as a status and nothing else: a dead link is not a way to learn a child's
+ * name.
+ */
+export async function getInvitePreview(tokenHash: string): Promise<InvitePreview> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("child_invite_preview", {
+    p_token_hash: tokenHash,
+  });
+  if (error) throw error;
+  const row = (data as InvitePreviewRow[])[0];
+  if (!row || row.status !== "ok" || !row.child_id) {
+    const status = row?.status;
+    return { status: status === "used" || status === "expired" ? status : "missing" };
+  }
+  return {
+    status: "ok",
+    childId: row.child_id,
+    childName: row.child_name ?? "",
+    childSex: (row.child_sex as Sex) ?? "female",
+    role: row.role ?? "viewer",
+    invitedBy: row.invited_by ?? "Någon",
+    alreadyMember: row.already_member,
+  };
 }

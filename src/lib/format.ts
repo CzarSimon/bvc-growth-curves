@@ -53,6 +53,20 @@ export function formatDate(iso: string): string {
 }
 
 /**
+ * The Swedish calendar day a timestamp fell on. Memberships are stored as
+ * timestamps but read as days ("har tillgång sedan 3 mars"), and the day a
+ * thing happened is the local one, not UTC's.
+ */
+export function isoDay(timestamp: string): string {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(timestamp));
+}
+
+/**
  * A child's age in words, from days lived. This is chronological age — what a
  * parent means by "how old is she" — not the corrected age the curve uses.
  */
