@@ -15,13 +15,13 @@ export default async function HistoryPage({
   params: Promise<{ childId: string }>;
 }) {
   const { childId } = await params;
-  const child = await getChild(childId);
-  if (!child) notFound();
-  const [rows, myRole, access] = await Promise.all([
+  const [child, rows, myRole, access] = await Promise.all([
+    getChild(childId),
     listMeasurements(childId),
     getMyRole(childId),
     listChildAccess(childId),
   ]);
+  if (!child) notFound();
   const measurements = sortByDate(rows).reverse();
   const history = `/barn/${child.id}/matningar`;
   const addHref = `${history}/ny?retur=matningar`;

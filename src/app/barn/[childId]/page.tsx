@@ -35,13 +35,16 @@ export default async function ChildHomePage({
   params: Promise<{ childId: string }>;
 }) {
   const { childId } = await params;
-  const child = await getChild(childId);
-  if (!child) notFound();
-  const [measurements, myRole, access] = await Promise.all([
+  // One wave, not two. Nothing below depends on the child existing before the
+  // rest can be asked for, and a childId that matches nothing costs three empty
+  // reads that row-level security was going to refuse anyway.
+  const [child, measurements, myRole, access] = await Promise.all([
+    getChild(childId),
     listMeasurements(childId),
     getMyRole(childId),
     listChildAccess(childId),
   ]);
+  if (!child) notFound();
 
   const reading = buildReading(child, measurements);
   const latest = latestMeasurement(measurements);

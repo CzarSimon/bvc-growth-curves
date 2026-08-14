@@ -93,6 +93,19 @@ literals, so they are inlined at build time rather than read at runtime. No
 service-role key is needed anywhere: the app runs on the anon key, RLS and
 session cookies alone.
 
+**The project must sign JWTs with an asymmetric key**, and this is the one
+piece of dashboard state the CLI cannot carry: Authentication → JWT Keys →
+migrate to an ECC (P-256) signing key. It is free on every plan, and existing
+sessions survive the rollover — the legacy secret keeps working until it is
+revoked, so nobody is signed out.
+
+This is a performance dependency, not a security one, and it fails quietly.
+`src/lib/supabase/middleware.ts` and `isSignedIn()` call `getClaims()`, which
+verifies the token locally against a cached JWKS. Against a symmetric secret
+`getClaims()` still returns the right answer — by asking the auth server over
+the network, which is exactly the round trip per request that those two call
+sites exist to avoid. Nothing breaks; the app is just slow again.
+
 Email confirmation is off in production as well as locally, and the sign-up flow
 depends on it: `signUpAction` assumes `signUp()` returns a session. Turning it
 on is a code change — an `/auth/callback` route and a "check your inbox" state —
