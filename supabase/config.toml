@@ -459,6 +459,16 @@ enable_signup = true
 # The app refuses anything shorter in signUpAction; make the server agree rather
 # than leaving a weaker password accepted by one layer and rejected by the other.
 minimum_password_length = 8
+# 15 minutes rather than the default hour. The proxy verifies the access token's
+# signature locally instead of asking the auth server on every request, which is
+# most of what made the app feel slow — but it means the proxy cannot see a
+# session revoked since the token was issued, and this is the window in which
+# that is true. RLS still refuses the data throughout; what is bounded here is
+# how long a revoked session keeps getting past the redirect.
+#
+# The cost is a token refresh four times an hour instead of once. Each refresh
+# is one network call, against the one-per-request this replaced.
+jwt_expiry = 900
 
 [remotes.prod.auth.email]
 # # Deliberately off, and load-bearing: signUpAction assumes signUp() returns a

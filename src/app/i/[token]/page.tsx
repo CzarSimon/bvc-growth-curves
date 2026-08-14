@@ -30,9 +30,16 @@ export default async function InviteLandingPage({
   const { token } = await params;
   const { fel } = await searchParams;
 
-  const preview = isPlausibleToken(token)
-    ? await getInvitePreview(hashInviteToken(token))
-    : ({ status: "missing" } as const);
+  // Asked together. `isSignedIn` is only needed further down, for a link that
+  // resolves, but it verifies the token locally now rather than asking the auth
+  // server — so paying for it on a dead link costs less than the round trip
+  // that waiting for the preview first used to add to every live one.
+  const [preview, signedIn] = await Promise.all([
+    isPlausibleToken(token)
+      ? getInvitePreview(hashInviteToken(token))
+      : Promise.resolve({ status: "missing" } as const),
+    isSignedIn(),
+  ]);
 
   if (preview.status !== "ok") {
     return (
@@ -50,7 +57,6 @@ export default async function InviteLandingPage({
     );
   }
 
-  const signedIn = await isSignedIn();
   const role = sharedRole(preview.role);
   const pronoun = preview.childSex === "female" ? "hon" : "han";
 

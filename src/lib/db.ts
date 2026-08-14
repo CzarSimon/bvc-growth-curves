@@ -52,8 +52,13 @@ const CHILD_COLUMNS = "id, name, sex, birth_date, gestation_weeks, gestation_day
 const MEASUREMENT_COLUMNS =
   "id, child_id, measured_on, weight_grams, length_mm, head_mm, created_by";
 
-/** Row-level security scopes this to the signed-in user's children. */
-export async function listChildren(): Promise<Child[]> {
+/**
+ * Row-level security scopes this to the signed-in user's children.
+ *
+ * Memoised per request, like everything else here: the layout needs the list
+ * for the child switcher, and /barn needs it to decide where to redirect.
+ */
+export const listChildren = cache(async (): Promise<Child[]> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("children")
@@ -61,9 +66,14 @@ export async function listChildren(): Promise<Child[]> {
     .order("birth_date", { ascending: true });
   if (error) throw error;
   return (data as ChildRow[]).map(toChild);
-}
+});
 
-export async function getChild(childId: string): Promise<Child | null> {
+/**
+ * Memoised because the layout and the screen inside it both need the child —
+ * the layout to title the shell, the screen to render it. Without this every
+ * navigation under /barn/[childId] fetched the same row twice.
+ */
+export const getChild = cache(async (childId: string): Promise<Child | null> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("children")
@@ -72,9 +82,9 @@ export async function getChild(childId: string): Promise<Child | null> {
     .maybeSingle();
   if (error) throw error;
   return data ? toChild(data as ChildRow) : null;
-}
+});
 
-export async function listMeasurements(childId: string): Promise<Measurement[]> {
+export const listMeasurements = cache(async (childId: string): Promise<Measurement[]> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("measurements")
@@ -83,7 +93,7 @@ export async function listMeasurements(childId: string): Promise<Measurement[]> 
     .order("measured_on", { ascending: true });
   if (error) throw error;
   return (data as MeasurementRow[]).map(toMeasurement);
-}
+});
 
 export async function getMeasurement(measurementId: string): Promise<Measurement | null> {
   const supabase = await createClient();
@@ -101,12 +111,17 @@ export async function getMeasurement(measurementId: string): Promise<Measurement
 /**
  * Whether anyone is signed in. The invite screen is the one screen a person can
  * reach before they have an account, so it has to ask.
+ *
+ * `getClaims()` verifies the token locally; see the note in
+ * `lib/supabase/middleware.ts` for why, and for what that gives up. Nothing
+ * here reads data — the answer only picks which of two buttons the invite
+ * screen shows — so a token that is valid but revoked costs nothing.
  */
-export async function isSignedIn(): Promise<boolean> {
+export const isSignedIn = cache(async (): Promise<boolean> => {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  return data.user !== null;
-}
+  const { data } = await supabase.auth.getClaims();
+  return data?.claims.sub != null;
+});
 
 /**
  * The signed-in user's role on a child, or null if they have none.

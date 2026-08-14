@@ -17,9 +17,8 @@ export default async function ChartPage({
 }) {
   const { childId } = await params;
   const { matt } = await searchParams;
-  const child = await getChild(childId);
+  const [child, measurements] = await Promise.all([getChild(childId), listMeasurements(childId)]);
   if (!child) notFound();
-  const measurements = await listMeasurements(childId);
 
   const series = {} as Record<Measure, CurvePoint[]>;
   const notPlotted = {} as Record<Measure, Partial<Record<OutOfRangeReason, number>>>;
