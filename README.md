@@ -94,10 +94,13 @@ service-role key is needed anywhere: the app runs on the anon key, RLS and
 session cookies alone.
 
 **The project must sign JWTs with an asymmetric key**, and this is the one
-piece of dashboard state the CLI cannot carry: Authentication → JWT Keys →
-migrate to an ECC (P-256) signing key. It is free on every plan, and existing
-sessions survive the rollover — the legacy secret keeps working until it is
-revoked, so nobody is signed out.
+piece of dashboard state the CLI cannot carry. Authentication → JWT Keys should
+show ECC (P-256) as the current key. Expect to confirm this rather than change
+it: this project was provisioned that way and rotated to it a day after the
+first migration, with nobody asking. If a project does show a Legacy HS256
+shared secret as current, rotating is free on every plan and signs nobody out —
+the old secret is retained to verify tokens already issued, which is also why
+it keeps appearing under "previously used keys" afterwards.
 
 This is a performance dependency, not a security one, and it fails quietly.
 `src/lib/supabase/middleware.ts` and `isSignedIn()` call `getClaims()`, which
