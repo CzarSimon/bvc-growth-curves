@@ -15,6 +15,7 @@ import {
 } from "@/lib/child-data";
 import { buildReading } from "@/lib/reading";
 import {
+  CHILD_FORM,
   CURVES_CARD,
   NAV,
   OUT_OF_RANGE_SHORT,
@@ -97,6 +98,7 @@ export default async function ChildHomePage({
           {showReading && reading.attention ? <AttentionCard text={reading.attention} /> : null}
           <BvcCard />
           <AccessSummaryCard childId={child.id} access={access} />
+          {showAdd ? <ChildDetailsCard child={child} /> : null}
         </div>
       </div>
 
@@ -164,8 +166,43 @@ function AccessSummaryCard({ childId, access }: { childId: string; access: Acces
   );
 }
 
+/**
+ * "Flicka · född 10 aug 2025 · vecka 39+2" — the way into "Ändra barn".
+ *
+ * Deliberately the same card as the one above it. Correcting a birth week
+ * shifts every point on the curve, so the way to do it should be as visible as
+ * the way to share the child, not folded into the measurement list where it
+ * sat before.
+ */
+function ChildDetailsCard({ child }: { child: Child }) {
+  return (
+    <Link
+      href={`/barn/${child.id}/andra`}
+      className="flex items-center gap-3 rounded-[14px] border border-border bg-surface p-4 hover:border-border-strong lg:p-[18px]"
+    >
+      <span className="flex flex-col gap-0.5">
+        <span className="text-base font-semibold lg:text-[15px]">{CHILD_FORM.cardTitle}</span>
+        <span className="text-[13px]/[1.45] text-ink-muted">
+          {CHILD_FORM.cardSummary(
+            sexLabel(child),
+            formatDate(child.birthDate),
+            `${child.gestationWeeks}+${child.gestationDays}`,
+          )}
+        </span>
+      </span>
+      <span className="ml-auto text-sm font-semibold whitespace-nowrap text-accent">
+        {CHILD_FORM.cardOpen}
+      </span>
+    </Link>
+  );
+}
+
+function sexLabel(child: Child): string {
+  return child.sex === "female" ? CHILD_FORM.girl : CHILD_FORM.boy;
+}
+
 function childMeta(child: Child): string {
-  const sex = child.sex === "female" ? "Flicka" : "Pojke";
+  const sex = sexLabel(child);
   return `${sex} · ${formatAge(ageDays(child, todayIso()))} · född ${formatDate(child.birthDate)} i vecka ${child.gestationWeeks}+${child.gestationDays}`;
 }
 

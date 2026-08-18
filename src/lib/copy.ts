@@ -215,6 +215,17 @@ export const CURVES_CARD = {
 
 export const CHILD_FORM = {
   title: "Lägg till barn",
+  /**
+   * The way into "Ändra barn" from the overview. It used to hang off the
+   * measurement list, next to the add button, where nobody found it — a
+   * mistyped birth week is rare enough that it should be findable from the
+   * screen a parent actually lands on, and common enough that it should not
+   * take a hunt.
+   */
+  cardTitle: "Barnets uppgifter",
+  cardOpen: "Ändra →",
+  cardSummary: (sex: string, birthDate: string, gestation: string) =>
+    `${sex} · född ${birthDate} · vecka ${gestation}`,
   name: "Namn",
   namePlaceholder: "Barnets namn",
   sex: "Kön",

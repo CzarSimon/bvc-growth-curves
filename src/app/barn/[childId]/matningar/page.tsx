@@ -4,7 +4,7 @@ import { deleteMeasurementAction } from "@/app/actions";
 import { getChild, getMyRole, listChildAccess, listMeasurements } from "@/lib/db";
 import { ageDays, measurementValue, sortByDate } from "@/lib/child-data";
 import { authorName, canEdit, type AccessMember } from "@/lib/access";
-import { ATTRIBUTION, CHILD_FORM, HISTORY } from "@/lib/copy";
+import { ATTRIBUTION, HISTORY } from "@/lib/copy";
 import { formatAge, formatDate, formatNumber } from "@/lib/format";
 import { MEASURE_CONFIG, MEASURE_ORDER } from "@/lib/measures";
 import type { Child, Measurement } from "@/lib/child-data";
@@ -40,20 +40,12 @@ export default async function HistoryPage({
         {/* On mobile the app shell already carries the add button; on desktop it
             belongs here, next to the list it adds to. */}
         {mayEdit ? (
-          <div className="hidden items-center gap-4 lg:flex">
-            <Link
-              href={`/barn/${child.id}/andra`}
-              className="flex min-h-11 items-center text-sm font-semibold text-accent"
-            >
-              {CHILD_FORM.editTitle}
-            </Link>
-            <Link
-              href={addHref}
-              className="flex min-h-12 items-center rounded-[10px] bg-accent px-5 text-base font-semibold text-white"
-            >
-              {HISTORY.add}
-            </Link>
-          </div>
+          <Link
+            href={addHref}
+            className="hidden min-h-12 items-center rounded-[10px] bg-accent px-5 text-base font-semibold text-white lg:flex"
+          >
+            {HISTORY.add}
+          </Link>
         ) : null}
       </div>
 
@@ -142,15 +134,6 @@ export default async function HistoryPage({
             </div>
           ))}
         </div>
-      ) : null}
-
-      {mayEdit ? (
-        <Link
-          href={`/barn/${child.id}/andra`}
-          className="flex min-h-11 items-center self-start text-sm font-semibold text-accent lg:hidden"
-        >
-          {CHILD_FORM.editTitle}
-        </Link>
       ) : null}
     </div>
   );
