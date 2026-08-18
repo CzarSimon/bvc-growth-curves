@@ -138,6 +138,14 @@ describe("the home screen", () => {
     expect(html).toContain("du, Erik");
   });
 
+  it("offers the way into the child's own details, next to sharing", async () => {
+    measurements = [m("2025-10-10", 5.15, 57.0, 38.4)];
+    const html = await renderHome();
+    expect(html).toContain("Barnets uppgifter");
+    expect(html).toContain("Flicka · född 10 augusti 2025 · vecka 39+2");
+    expect(html).toContain(`href="/barn/c1/andra"`);
+  });
+
   it("gives a view-only user the values but not the reading", async () => {
     myRole = "viewer";
     measurements = [
@@ -151,6 +159,7 @@ describe("the home screen", () => {
     expect(html).not.toContain("Något att ta upp på BVC");
     expect(html).not.toContain("Så ser kurvan ut nu");
     expect(html).not.toContain("Lägg till mätning");
+    expect(html).not.toContain("Barnets uppgifter");
     // What they do get: the numbers, the curves and the way to BVC.
     expect(html).toContain("6,000 kg");
     expect(html).toContain("Fråga BVC när du vill");
