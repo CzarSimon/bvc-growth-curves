@@ -36,7 +36,7 @@ export function valueFromReference(point: ReferencePoint, z: number): number {
 }
 
 /**
- * SDS for a measured value at a corrected age.
+ * SDS for a measured value at a given age.
  * `value` is in the measure's own unit: kg for weight, cm for length and head.
  */
 export function sds(

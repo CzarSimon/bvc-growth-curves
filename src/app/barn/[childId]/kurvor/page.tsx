@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import { ChartScreen, type ChartScreenData } from "@/components/chart-screen";
 import { getChild, listMeasurements } from "@/lib/db";
-import { ageDays, correctedAge, seriesFor } from "@/lib/child-data";
+import { ageDays, plottableAge, seriesFor } from "@/lib/child-data";
 import { CHART } from "@/lib/copy";
-import { formatAge, formatDate, formatGestation, todayIso } from "@/lib/format";
+import { formatAge, formatDate, todayIso } from "@/lib/format";
 import { MEASURE_ORDER, measureFromSlug } from "@/lib/measures";
-import { ageCorrectionDays, type Measure, type OutOfRangeReason } from "@/lib/growth";
+import type { Measure, OutOfRangeReason } from "@/lib/growth";
 import type { CurvePoint } from "@/lib/child-data";
 
 export default async function ChartPage({
@@ -43,11 +43,8 @@ export default async function ChartPage({
     childMeta: `${sex} · ${formatAge(ageDays(child, today))} · född ${formatDate(child.birthDate)}`,
     sex: child.sex,
     birthDate: child.birthDate,
-    todayAgeMonths: correctedAge(child, today),
-    footnote: CHART.footnote(
-      ageCorrectionDays(child.gestationWeeks, child.gestationDays),
-      formatGestation(child.gestationWeeks, child.gestationDays),
-    ),
+    todayAgeMonths: plottableAge(child, today),
+    footnote: CHART.footnote,
     series,
     notPlotted,
     ageDaysByMeasurement,

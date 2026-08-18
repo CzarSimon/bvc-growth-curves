@@ -25,7 +25,7 @@ export type ChartScreenData = {
   sex: Sex;
   birthDate: string;
   footnote: string;
-  /** The child's corrected age today — where "Visa fortsättning" stops the line. */
+  /** The child's age today — where "Visa fortsättning" stops the line. */
   todayAgeMonths: Ranged<number>;
   series: Record<Measure, CurvePoint[]>;
   /** Recorded values that fall outside the reference, by measure and reason. */

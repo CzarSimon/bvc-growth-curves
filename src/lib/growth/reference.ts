@@ -59,7 +59,7 @@ const RAW: Record<Sex, RawFile> = {
   female: girlsCurves as RawFile,
 };
 
-/** The reference's declared domain, in months from term. */
+/** The reference's declared domain, in months of age. */
 export const AGE_MIN_MONTHS = 0;
 export const AGE_MAX_MONTHS = 24;
 
@@ -127,7 +127,7 @@ for (const sex of ["male", "female"] as const) {
   }
 }
 
-/** Knot ages for a measure, in months from term. Exposed for tests. */
+/** Knot ages for a measure, in months of age. Exposed for tests. */
 export function knotAges(sex: Sex, measure: Measure): readonly number[] {
   return COMPILED[sex][measure].ageMonths;
 }
@@ -141,7 +141,7 @@ export function measureDistribution(sex: Sex, measure: Measure): Distribution {
 }
 
 /**
- * Mean and SD at a corrected age. Refuses ages outside 0–24 months rather than
+ * Mean and SD at an age in months. Refuses ages outside 0–24 months rather than
  * clamping: the chart does not define the curves there and weight in particular
  * is steep at both ends.
  */

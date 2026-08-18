@@ -2,13 +2,13 @@
  * Putting a particular child's measurement on the reference.
  *
  * Everything here goes through the same two gates, in order:
- *   1. Is the child's gestational age at birth inside term (37+0 … 42+0)?
- *   2. Is the corrected age inside the reference's 0–24 months?
+ *   1. Was the child born at 37+0 or later?
+ *   2. Is the age since birth inside the reference's 0–24 months?
  * Either gate can refuse, and refusing is a result the UI renders — never a
  * clamp, never a silent zero.
  */
 
-import { ageMonthsFromTerm, isTermGestation, gestationDays } from "./age";
+import { ageMonths, isPreterm, gestationDays } from "./age";
 import { AGE_MAX_MONTHS, AGE_MIN_MONTHS, referenceAt } from "./reference";
 import { sdsFromReference, valueFromReference } from "./sds";
 import {
@@ -27,26 +27,21 @@ export type ChildRef = {
   gestationDays: number;
 };
 
-/** Corrected age in months from term, refusing non-term children and ages off the chart. */
-export function correctedAgeMonths(child: ChildRef, onDate: string): Ranged<number> {
-  if (!isTermGestation(child.gestationWeeks, child.gestationDays)) {
-    return outOfRange("gestation-not-term", {
+/** Age in months since birth, refusing preterm children and ages off the chart. */
+export function plottableAgeMonths(child: ChildRef, onDate: string): Ranged<number> {
+  if (isPreterm(child.gestationWeeks, child.gestationDays)) {
+    return outOfRange("gestation-preterm", {
       gestationDays: gestationDays(child.gestationWeeks, child.gestationDays),
     });
   }
-  const months = ageMonthsFromTerm(
-    child.birthDate,
-    onDate,
-    child.gestationWeeks,
-    child.gestationDays,
-  );
+  const months = ageMonths(child.birthDate, onDate);
   if (months < AGE_MIN_MONTHS) return outOfRange("age-before-range", { ageMonths: months });
   if (months > AGE_MAX_MONTHS) return outOfRange("age-after-range", { ageMonths: months });
   return inRange(months);
 }
 
 export type PlottedValue = {
-  /** Corrected age in months from term — the chart's x position. */
+  /** Age in months since birth — the chart's x position. */
   ageMonths: number;
   /** The measured value in the measure's own unit (kg or cm) — the y position. */
   value: number;
@@ -63,7 +58,7 @@ export function plotMeasurement(
   onDate: string,
   value: number,
 ): Ranged<PlottedValue> {
-  const age = correctedAgeMonths(child, onDate);
+  const age = plottableAgeMonths(child, onDate);
   if (!age.ok) return age;
   const point = referenceAt(child.sex, measure, age.value);
   if (!point.ok) return point;

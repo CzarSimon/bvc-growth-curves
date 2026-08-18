@@ -237,12 +237,7 @@ export const CHILD_FORM = {
   weeks: "veckor",
   days: "dagar",
   gestationExplainer:
-    "Står på BVC-kortet, ofta som ”39+2”. Ett barn som föds i vecka 38 har hunnit växa två veckor mindre än ett barn som föds i vecka 40. Vi flyttar kurvan lika mycket, så att jämförelsen blir rättvis. Fullgången tid är 37–42 veckor.",
-  correctionLabel: "Ålderskorrektion:",
-  correctionPending: "fylls i när veckor är ifyllt",
-  correctionNone: "ingen — född vecka 40+0",
-  correctionLeft: (days: number) => `${days} dagar, kurvan flyttas åt vänster`,
-  correctionRight: (days: number) => `${days} dagar, kurvan flyttas åt höger`,
+    "Står på BVC-kortet, ofta som ”39+2”. Vi frågar för att se om kurvorna här gäller ditt barn: de gäller barn födda från vecka 37. Åldern räknas sedan från födseln, precis som på BVC — kurvan flyttas inte.",
   birthValues: "Födelseuppgifter",
   birthValuesOptional: "— frivilligt",
   birthWeight: "Vikt, kg",
@@ -309,13 +304,8 @@ export const CHART = {
   /** Values that exist but sit outside the reference are named, not hidden. */
   notPlotted: (count: number, explanation: string) =>
     `${count === 1 ? "En mätning visas inte i diagrammet" : `${count} mätningar visas inte i diagrammet`}. ${explanation}`,
-  footnote: (correctionDays: number, gestation: string) => {
-    const correction =
-      correctionDays === 0
-        ? "noll dagar"
-        : `${Math.abs(correctionDays)} dagar ${correctionDays > 0 ? "åt vänster" : "åt höger"}`;
-    return `Kurvorna visar medelvärde (M) och standardavvikelser för svenska barn födda i fullgången tid. Ungefär 68 % av alla barn ligger inom ±1 SD och 95 % inom ±2 SD. Åldern är korrigerad ${correction} för graviditetslängd ${gestation}.`;
-  },
+  footnote:
+    "Kurvorna visar medelvärde (M) och standardavvikelser för svenska barn födda i fullgången tid. Ungefär 68 % av alla barn ligger inom ±1 SD och 95 % inom ±2 SD. Åldern räknas från födseln.",
 };
 
 /**
@@ -332,7 +322,7 @@ export const PROJECTION = {
   noMeasurement: "Det finns ingen mätning att räkna vidare från än.",
   /**
    * Verbatim from the design handover, and the one line here worth a second
-   * look in the clinical review: this fires when *today's* corrected age is past
+   * look in the clinical review: this fires when *today's* age is past
    * the chosen interval, which is not the same thing as the measurement being
    * outside it. With a measurement at two months and a child of eight, the
    * 0–3 mån view shows the point and says the value was measured later than the
@@ -401,17 +391,17 @@ export function sdShort(sd: number): string {
  */
 export const OUT_OF_RANGE = {
   "age-before-range":
-    "Kurvan börjar vid fullgången tid, vecka 40+0. Den här mätningen är gjord innan dess, så den går inte att placera på kurvan än. Värdet är sparat och dyker upp så snart barnet når vecka 40.",
+    "Kurvan börjar vid födseln. Den här mätningen är daterad före barnets födelsedatum, så den går inte att placera på kurvan.",
   "age-after-range":
     "Kurvan gäller till två år. Den här mätningen är gjord efter det, så den går inte att placera på kurvan.",
-  "gestation-not-term":
-    "Kurvorna gäller barn födda i fullgången tid, vecka 37–42. För barn födda tidigare finns särskilda kurvor som BVC använder — de finns inte här.",
+  "gestation-preterm":
+    "Kurvorna gäller barn födda från vecka 37. För barn som föds tidigare än så finns särskilda kurvor som BVC använder — de finns inte här.",
 } as const;
 
 export const OUT_OF_RANGE_SHORT = {
-  "age-before-range": "före kurvans början",
+  "age-before-range": "före födseln",
   "age-after-range": "efter kurvans slut",
-  "gestation-not-term": "utanför kurvornas område",
+  "gestation-preterm": "utanför kurvornas område",
 } as const;
 
 export const VALIDATION = {
@@ -424,8 +414,8 @@ export const VALIDATION = {
     "Det finns redan en mätning som är gjord före det här datumet. Ändra eller ta bort den mätningen först.",
   gestationRequired: "Fyll i graviditetslängden — den står på BVC-kortet.",
   gestationDaysRange: "Dagar anges som 0–6.",
-  gestationNotTerm:
-    "Kurvan gäller barn födda i fullgången tid, vecka 37+0 till 42+0. För barn födda tidigare finns särskilda kurvor som BVC använder — de finns inte här.",
+  gestationPreterm:
+    "Kurvorna gäller barn födda från vecka 37+0. För barn som föds tidigare än så finns särskilda kurvor som BVC använder — de finns inte här.",
   measurementDateRequired: "Fyll i datum för mätningen.",
   measurementDateInvalid: "Datumet finns inte. Skriv det som ÅÅÅÅ-MM-DD.",
   measurementDateFuture: "Datumet ligger i framtiden.",
@@ -506,7 +496,7 @@ export const PROVENANCE = {
   distributionExplainer:
     "Vikt är log-normalfördelad och räknas på log10-skalan; längd och huvudomfång är normalfördelade och räknas i centimeter. Alla tre ritas på logaritmiska axlar i det tryckta diagrammet, vilket är en egenskap hos diagrammet och inte hos fördelningen.",
   ageExplainer:
-    "Åldersaxeln utgår från fullgången tid, vecka 40+0, inte från födseln. Ett barn fött i vecka 38 och ett fött i vecka 41 hamnar därför på olika ställen på kurvan vid samma levnadsålder. Utanför 0–24 månader och utanför vecka 37–42 visar appen ingenting — den räknar inte vidare utanför kurvornas område.",
+    "Åldern räknas från födseln, precis som på BVC. Ett barn fött i vecka 38 och ett fött i vecka 41 hamnar på samma ställe på kurvan vid samma levnadsålder — kurvan flyttas inte för graviditetslängden. Det är bara för tidigt födda barn som åldern korrigeras inom vården, och de följs på egna kurvor som inte finns här. Appen visar därför barn födda från vecka 37, och bara under de första 0–24 månaderna — utanför det räknar den inte vidare.",
   disclaimer:
     "Barntillväxt är inget medicinskt hjälpmedel. Appen bedömer ingenting och ställer inga diagnoser. Frågor om barnets tillväxt hör hemma på BVC.",
 };

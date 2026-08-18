@@ -43,16 +43,22 @@ and must not live in the database.
 Put this in one pure, dependency-free module with thorough unit tests. Every
 number the parent sees comes from here.
 
-**Age axis.** The reference is continuous from gestational week 24 and is
-anchored at 40+0, not at birth:
+**Age axis.** Age is days since birth. Nothing is shifted for gestational
+length:
 
 ```
-ageWeeksFromTerm = chronologicalAgeDays / 7 + (gestationalWeeksAtBirth - 40)
+ageMonths = chronologicalAgeDays / 30.4375
 ```
 
-Term spans 37–42 weeks, so a 38-week and a 41-week baby of the same
-chronological age plot at different positions. This is not prematurity
-correction — it is how the reference works, and it applies to every child.
+The reference itself is anchored at 40+0, and an earlier version of this spec
+moved each child along the axis by how far their own birth sat from that
+anchor. Swedish child health care does not do this — only preterm children get
+a corrected age, on a separate reference the app does not carry — so the app
+would have been disagreeing with the BVC card the parent is holding. A 38-week
+and a 41-week baby of the same chronological age plot at the same position.
+
+Gestational age at birth is still required, and decides exactly one thing:
+whether the app supports this child at all.
 
 **SDS.**
 
@@ -70,7 +76,7 @@ i.e. wrong exactly where it matters. Test the tails explicitly.
 natural spline. A cubic spline overshoots across wide intervals and produces a
 non-monotonic mean growth curve. Interpolate mean and sd independently.
 
-**Never extrapolate.** Outside 0–24 months or outside 37–42 weeks gestation,
+**Never extrapolate.** Outside 0–24 months, or for a child born before 37+0,
 return a clear "out of range" result and have the UI say so plainly. Do not
 silently clamp.
 
@@ -99,8 +105,8 @@ Reject impossible input at the boundary, and say why in Swedish:
 - Measurement date not before date of birth, not in the future
 - Values within plausible physical ranges — a mistyped `45` kg instead of
   `4,5` must be caught
-- Gestational age 37–42 weeks (out of scope otherwise; say so, don't fail
-  silently)
+- Gestational age from 37+0 (preterm is out of scope; say so, don't fail
+  silently). No upper bound — a post-term child is plotted like any other
 
 Input uses **Swedish decimal comma** (`4,250 kg`, `52,5 cm`). Accept both comma
 and period on input; render comma. Weight to the gram, lengths to the

@@ -11,7 +11,7 @@ import { renderToReadableStream } from "react-dom/server";
 import type { Child, Measurement } from "@/lib/child-data";
 import type { AccessMember, ChildRole } from "@/lib/access";
 
-const child: Child = {
+const termChild: Child = {
   id: "c1",
   name: "Elsa",
   sex: "female",
@@ -20,6 +20,7 @@ const child: Child = {
   gestationDays: 2,
 };
 
+let child: Child = termChild;
 let measurements: Measurement[] = [];
 let myRole: ChildRole = "owner";
 
@@ -70,6 +71,7 @@ async function renderHome(): Promise<string> {
 
 describe("the home screen", () => {
   beforeEach(() => {
+    child = termChild;
     myRole = "owner";
     access = [me];
   });
@@ -99,11 +101,11 @@ describe("the home screen", () => {
   });
 
   it("says a value is off the curve instead of plotting it somewhere", async () => {
-    // Born at 39+2, so the curve starts five days after the birth date. Both of
-    // these were measured before the child reaches term.
+    // Born at 35+0: preterm, so none of these can go on the term curves.
+    child = { ...termChild, gestationWeeks: 35, gestationDays: 0 };
     measurements = [m("2025-08-10", 3.48, 50.0, 34.0), m("2025-08-12", 3.29, 50.0, 34.0)];
     const html = await renderHome();
-    expect(html).toContain("före kurvans början");
+    expect(html).toContain("utanför kurvornas område");
     expect(html).toContain("Inget att visa på kurvan än");
     // The values themselves are still shown — they are saved, not discarded.
     expect(html).toContain("3,290 kg");

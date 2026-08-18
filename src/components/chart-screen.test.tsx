@@ -52,7 +52,7 @@ describe("the chart screen", () => {
     expect(html).not.toContain("Huvudomfångskurva");
   });
 
-  it("carries the axis caption and the age-correction footnote", async () => {
+  it("carries the axis caption and the reference footnote", async () => {
     const html = await render(data());
     expect(html).toContain("Vågrätt: ålder i månader, F = födsel");
     expect(html).toContain("standardavvikelser");
@@ -63,12 +63,12 @@ describe("the chart screen", () => {
       data({
         notPlotted: {
           ...emptyNotPlotted,
-          weight: { "age-before-range": 2 },
+          weight: { "gestation-preterm": 2 },
         },
       }),
     );
     expect(html).toContain("2 mätningar visas inte i diagrammet");
-    expect(html).toContain("vecka 40+0");
+    expect(html).toContain("vecka 37");
   });
 
   it("says a measure has no measurements yet instead of showing a blank card", async () => {

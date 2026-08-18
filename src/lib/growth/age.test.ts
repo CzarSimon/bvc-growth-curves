@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   DAYS_PER_MONTH,
-  ageCorrectionDays,
-  ageDaysFromTerm,
-  ageMonthsFromTerm,
-  ageWeeksFromTerm,
+  ageMonths,
+  chronologicalAgeDays,
   daysBetween,
   gestationDays,
-  isTermGestation,
+  isPreterm,
   isValidIsoDate,
   isoToEpochDay,
 } from "./age";
@@ -39,62 +37,52 @@ describe("ISO calendar days", () => {
   });
 });
 
-describe("term gestation", () => {
-  it("accepts 37+0 through 42+0 and nothing else", () => {
-    expect(isTermGestation(37, 0)).toBe(true);
-    expect(isTermGestation(42, 0)).toBe(true);
-    expect(isTermGestation(39, 2)).toBe(true);
-    expect(isTermGestation(36, 6)).toBe(false);
-    expect(isTermGestation(42, 1)).toBe(false);
-    expect(isTermGestation(40, 7)).toBe(false);
-    expect(isTermGestation(40, -1)).toBe(false);
-    expect(isTermGestation(39.5, 0)).toBe(false);
+describe("the preterm gate", () => {
+  it("refuses below 37+0 and nothing above it", () => {
+    expect(isPreterm(36, 6)).toBe(true);
+    expect(isPreterm(34, 2)).toBe(true);
+    expect(isPreterm(37, 0)).toBe(false);
+    expect(isPreterm(39, 2)).toBe(false);
+    expect(isPreterm(40, 0)).toBe(false);
   });
 
-  it("shifts the curve by 280 days minus the gestation", () => {
-    expect(ageCorrectionDays(40, 0)).toBe(0);
-    expect(ageCorrectionDays(38, 0)).toBe(14);
-    expect(ageCorrectionDays(37, 0)).toBe(21);
-    expect(ageCorrectionDays(42, 0)).toBe(-14);
+  it("has no upper bound — a post-term child is supported", () => {
+    // Överburen, from 42+0. Swedish care plots these children from birth like
+    // any other; there is no separate curve and no adjustment.
+    expect(isPreterm(42, 0)).toBe(false);
+    expect(isPreterm(42, 1)).toBe(false);
+    expect(isPreterm(43, 2)).toBe(false);
+  });
+
+  it("does not treat malformed input as preterm", () => {
+    // validateChild rejects these in its own earlier branches.
+    expect(isPreterm(40, 7)).toBe(false);
+    expect(isPreterm(40, -1)).toBe(false);
+    expect(isPreterm(39.5, 0)).toBe(false);
+  });
+
+  it("counts gestation in days", () => {
     expect(gestationDays(39, 2)).toBe(275);
-    expect(ageCorrectionDays(39, 2)).toBe(5);
+    expect(gestationDays(37, 0)).toBe(259);
   });
 });
 
-describe("age from term", () => {
-  it("matches the build spec's week formula", () => {
-    // ageWeeksFromTerm = chronologicalAgeDays / 7 + (gestationalWeeks - 40)
-    for (const weeks of [37, 38, 39, 40, 41, 42]) {
-      for (const days of [0, 70, 365]) {
-        const expected = days / 7 + (weeks - 40);
-        expect(ageWeeksFromTerm("2025-01-01", isoPlus("2025-01-01", days), weeks, 0)).toBeCloseTo(
-          expected,
-          10,
-        );
-      }
+describe("age from birth", () => {
+  it("is zero on the birth date, whatever the gestation", () => {
+    expect(chronologicalAgeDays("2025-08-10", "2025-08-10")).toBe(0);
+    expect(ageMonths("2025-08-10", "2025-08-10")).toBe(0);
+  });
+
+  it("does not depend on gestational length at all", () => {
+    // The whole point of the change: age takes only two dates as input.
+    expect(ageMonths("2025-08-10", "2025-11-10")).toBeCloseTo(92 / DAYS_PER_MONTH, 12);
+  });
+
+  it("counts calendar days, not weeks of gestation", () => {
+    for (const days of [0, 70, 365]) {
+      const onDate = isoPlus("2025-01-01", days);
+      expect(ageMonths("2025-01-01", onDate)).toBeCloseTo(days / DAYS_PER_MONTH, 10);
     }
-  });
-
-  it("puts a 38-week and a 41-week baby of the same age at different positions", () => {
-    const earlier = ageDaysFromTerm("2025-08-10", "2025-11-10", 38, 0);
-    const later = ageDaysFromTerm("2025-08-10", "2025-11-10", 41, 0);
-    expect(later - earlier).toBe(21);
-  });
-
-  it("is negative before term for a child born early", () => {
-    // A 38+0 baby weighed on its birth date is two weeks short of the
-    // reference's first point. This is the case the UI has to speak to.
-    expect(ageDaysFromTerm("2025-08-10", "2025-08-10", 38, 0)).toBe(-14);
-    expect(ageMonthsFromTerm("2025-08-10", "2025-08-10", 38, 0)).toBeCloseTo(
-      -14 / DAYS_PER_MONTH,
-      12,
-    );
-  });
-
-  it("is already positive at birth for a post-term child", () => {
-    expect(ageDaysFromTerm("2025-08-10", "2025-08-10", 41, 3), "41+3 is ten days past term").toBe(
-      10,
-    );
   });
 });
 
