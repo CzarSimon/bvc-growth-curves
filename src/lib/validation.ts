@@ -5,7 +5,7 @@
 
 import { VALIDATION } from "./copy";
 import { formatNumber, parseDecimal, todayIso } from "./format";
-import { isTermGestation, isValidIsoDate, daysBetween, type Sex } from "./growth";
+import { isPreterm, isValidIsoDate, daysBetween, type Sex } from "./growth";
 import { MEASURE_CONFIG, MEASURE_ORDER } from "./measures";
 import type { Measure } from "./growth";
 
@@ -50,8 +50,10 @@ export function validateChild(raw: RawChildForm): Validated<ChildInput> {
     errors.gestation = VALIDATION.gestationRequired;
   } else if (days === null || days < 0 || days > 6) {
     errors.gestation = VALIDATION.gestationDaysRange;
-  } else if (!isTermGestation(weeks, days)) {
-    errors.gestation = VALIDATION.gestationNotTerm;
+  } else if (isPreterm(weeks, days)) {
+    // The only gestational bound there is. There is deliberately no upper one:
+    // a post-term child is plotted from birth like everyone else.
+    errors.gestation = VALIDATION.gestationPreterm;
   }
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };

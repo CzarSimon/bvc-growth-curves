@@ -2,7 +2,7 @@
  * "Visa fortsättning" — the opt-in dashed continuation of the child's own line.
  *
  * The rule is to hold the latest SDS constant and read the reference forward,
- * from the latest measurement to the child's corrected age today, and no
+ * from the latest measurement to the child's age today, and no
  * further. It fills the gap between the last BVC visit and now.
  *
  * It is deliberately *not* a trend fit, and must not become one. Extrapolating a
@@ -24,7 +24,7 @@ import { AGE_MAX_MONTHS } from "./reference";
 import type { Measure, Ranged, Sex } from "./types";
 
 export type ProjectionPoint = {
-  /** Corrected age in months from term. */
+  /** Age in months since birth. */
   ageMonths: number;
   /** kg for weight, cm for length and head. */
   value: number;
@@ -34,7 +34,7 @@ export type ProjectionPoint = {
 export type ProjectionUnavailable =
   /** Nothing on the curve to count forward from. */
   | "no-measurement"
-  /** Today's corrected age is past the visible interval, so the line would be off-screen. */
+  /** Today's age is past the visible interval, so the line would be off-screen. */
   | "today-past-interval"
   /** The child is older than the reference's 24 months; there is no longer interval to pick. */
   | "today-past-reference"
@@ -48,7 +48,7 @@ export type Projection =
       /** The SDS held constant across the line — the latest measurement's own. */
       sds: number;
       from: ProjectionPoint;
-      /** Where the line ends: the child's corrected age today. */
+      /** Where the line ends: the child's age today. */
       to: ProjectionPoint;
       /** The whole line, sampled for drawing. It curves; it is a reference curve. */
       points: ProjectionPoint[];
@@ -71,7 +71,7 @@ export type ProjectionInput = {
   measure: Measure;
   /** The most recent plotted point for this measure, or null if there is none. */
   latest: { ageMonths: number; sds: number } | null;
-  /** The child's corrected age today, which is where the line stops. */
+  /** The child's age today, which is where the line stops. */
   todayAgeMonths: Ranged<number>;
   /** The visible interval's end, in months. The zoom clips the line, never extends it. */
   visibleToMonths: number;
@@ -87,9 +87,9 @@ export function projectForward({
   if (!latest) return { drawn: false, reason: "no-measurement" };
 
   if (!todayAgeMonths.ok) {
-    // A child with a plotted point is term-born and past 0 months from term, so
-    // the only reason today's age can fall outside the reference is that the
-    // child has passed 24 months.
+    // A child with a plotted point was born at 37+0 or later and is past 0
+    // months old, so the only reason today's age can fall outside the reference
+    // is that the child has passed 24 months.
     if (todayAgeMonths.reason === "age-after-range") {
       return { drawn: false, reason: "today-past-reference" };
     }

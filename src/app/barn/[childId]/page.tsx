@@ -9,7 +9,7 @@ import {
   latestMeasurement,
   measurementValue,
   seriesFor,
-  correctedAge,
+  plottableAge,
   type Child,
   type Measurement,
 } from "@/lib/child-data";
@@ -211,7 +211,7 @@ function childMeta(child: Child): string {
  * was tried and is too cramped at 390px.
  */
 function LatestValues({ child, latest }: { child: Child; latest: Measurement }) {
-  const age = correctedAge(child, latest.measuredOn);
+  const age = plottableAge(child, latest.measuredOn);
 
   return (
     <div className="flex flex-col border-t border-hairline pt-2.5">

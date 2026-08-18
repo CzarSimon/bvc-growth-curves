@@ -25,19 +25,19 @@ export type Distribution = "log10-normal" | "normal";
 
 /** Why a value could not be placed on the reference. */
 export type OutOfRangeReason =
-  /** Corrected age is before the reference's first point (0 months from term). */
+  /** Age is before the reference's first point — i.e. the date precedes birth. */
   | "age-before-range"
-  /** Corrected age is past the reference's last point (24 months from term). */
+  /** Age is past the reference's last point (24 months). */
   | "age-after-range"
-  /** Gestational age at birth is outside term, 37+0 to 42+0. */
-  | "gestation-not-term";
+  /** Born before 37+0; the app has no preterm reference. */
+  | "gestation-preterm";
 
 export type OutOfRange = {
   ok: false;
   reason: OutOfRangeReason;
-  /** The corrected age in months that fell outside the reference, when known. */
+  /** The age in months that fell outside the reference, when known. */
   ageMonths?: number;
-  /** The gestational age in days that fell outside term, when known. */
+  /** The gestational age in days that was below term, when known. */
   gestationDays?: number;
 };
 
@@ -45,8 +45,8 @@ export type InRange<T> = { ok: true; value: T };
 
 /**
  * The result of anything that can fall off the reference. There is deliberately
- * no clamping variant: outside 0–24 months from term, or outside 37–42 weeks of
- * gestation, callers get `ok: false` and the UI says so plainly.
+ * no clamping variant: outside 0–24 months of age, or born before 37+0, callers
+ * get `ok: false` and the UI says so plainly.
  */
 export type Ranged<T> = InRange<T> | OutOfRange;
 

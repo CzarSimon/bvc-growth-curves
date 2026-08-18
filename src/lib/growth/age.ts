@@ -1,30 +1,25 @@
 /**
  * The age axis.
  *
- * The Swedish reference is anchored at 40+0 weeks of gestation, not at birth.
- * A child born at 38+0 has grown two weeks less than one born at 40+0 on the
- * same day of life, so the two plot at different positions on the same curve.
- * This is not prematurity correction — it applies to every child, including
- * post-term ones, whose curve shifts the other way.
+ * Age is days since birth. Nothing is shifted for gestational length.
  *
- *   ageDaysFromTerm = daysSinceBirth - (280 - gestationDays)
- *                   = daysSinceBirth + gestationDays - 280
+ * The Swedish reference is anchored at 40+0 weeks of gestation, and it is
+ * tempting to move each child along the axis by how far their own birth sat
+ * from that anchor. Swedish child health care does not do this: only preterm
+ * children get a corrected age, and they are plotted on a separate reference
+ * this app does not have. Correcting a term child here would make the app
+ * disagree with the BVC card the parent is holding, so it does not.
  *
- * Equivalently, in the form the build spec states it:
- *
- *   ageWeeksFromTerm = daysSinceBirth / 7 + (gestationalWeeks - 40)
+ * Gestational age at birth is still asked for, but it decides exactly one
+ * thing: whether the app supports this child at all. Below 37+0 it does not.
  *
  * Dates are handled as plain ISO calendar days (`YYYY-MM-DD`) throughout. A
  * measurement date is a calendar fact, not an instant, and going through local
  * `Date` arithmetic would make the age wrong by a day around DST boundaries.
  */
 
-/** Gestational days at 40+0, the reference's anchor. */
-export const TERM_DAYS = 280;
-
-/** Term as the reference defines it: 37+0 through 42+0 inclusive. */
+/** 37+0, the preterm cutoff and the only gestational boundary the app has. */
 export const TERM_MIN_DAYS = 37 * 7;
-export const TERM_MAX_DAYS = 42 * 7;
 
 /** Mean days in a calendar month (365.25 / 12), the chart's month unit. */
 export const DAYS_PER_MONTH = 30.4375;
@@ -75,20 +70,21 @@ export function gestationDays(weeks: number, days: number): number {
   return weeks * 7 + days;
 }
 
-/** True for 37+0 … 42+0 inclusive. */
-export function isTermGestation(weeks: number, days: number): boolean {
+/**
+ * True below 37+0 — the one gestation the app refuses.
+ *
+ * There is deliberately no upper bound. A post-term child (from 42+0, what
+ * Swedish care calls *överburen*) is plotted from birth like everyone else:
+ * no separate curve exists for them and no adjustment is made in practice.
+ *
+ * Malformed input is not preterm. `validateChild` rejects non-integers and
+ * days outside 0–6 in its own earlier branches, so answering "false" here
+ * cannot let bad input through — it keeps this function about one question.
+ */
+export function isPreterm(weeks: number, days: number): boolean {
   if (!Number.isInteger(weeks) || !Number.isInteger(days)) return false;
   if (days < 0 || days > 6) return false;
-  const total = gestationDays(weeks, days);
-  return total >= TERM_MIN_DAYS && total <= TERM_MAX_DAYS;
-}
-
-/**
- * How far the child's curve shifts, in days. Positive means the child was born
- * before term and the curve moves left; negative means born after term.
- */
-export function ageCorrectionDays(weeks: number, days: number): number {
-  return TERM_DAYS - gestationDays(weeks, days);
+  return gestationDays(weeks, days) < TERM_MIN_DAYS;
 }
 
 /** Chronological days lived, birth date to measurement date. */
@@ -96,29 +92,7 @@ export function chronologicalAgeDays(birthDate: string, onDate: string): number 
   return daysBetween(birthDate, onDate);
 }
 
-export function ageDaysFromTerm(
-  birthDate: string,
-  onDate: string,
-  weeks: number,
-  days: number,
-): number {
-  return chronologicalAgeDays(birthDate, onDate) - ageCorrectionDays(weeks, days);
-}
-
-export function ageWeeksFromTerm(
-  birthDate: string,
-  onDate: string,
-  weeks: number,
-  days: number,
-): number {
-  return ageDaysFromTerm(birthDate, onDate, weeks, days) / 7;
-}
-
-export function ageMonthsFromTerm(
-  birthDate: string,
-  onDate: string,
-  weeks: number,
-  days: number,
-): number {
-  return ageDaysFromTerm(birthDate, onDate, weeks, days) / DAYS_PER_MONTH;
+/** Age in months since birth — the chart's x position. */
+export function ageMonths(birthDate: string, onDate: string): number {
+  return chronologicalAgeDays(birthDate, onDate) / DAYS_PER_MONTH;
 }

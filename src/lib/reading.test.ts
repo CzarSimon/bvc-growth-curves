@@ -113,9 +113,9 @@ describe("the home reading", () => {
   });
 
   it("says nothing can be plotted when every point is off the reference", () => {
-    // Born at 38+0, both measurements taken before the child reaches term.
-    const early: Child = { ...child, gestationWeeks: 38, gestationDays: 0 };
-    const reading = buildReading(early, [
+    // Born at 35+0: preterm, so the app has no curve to place this child on.
+    const preterm: Child = { ...child, gestationWeeks: 35, gestationDays: 0 };
+    const reading = buildReading(preterm, [
       m("2025-08-10", 3.2, 49.0),
       m("2025-08-15", 3.1, 49.0),
     ]);

@@ -68,7 +68,7 @@ export function isoDay(timestamp: string): string {
 
 /**
  * A child's age in words, from days lived. This is chronological age — what a
- * parent means by "how old is she" — not the corrected age the curve uses.
+ * parent means by "how old is she", which is now also what the curve uses.
  */
 export function formatAge(days: number): string {
   if (days < 0) return "0 dagar";

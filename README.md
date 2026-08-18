@@ -174,10 +174,14 @@ docs/reference/     the official PC PAL 0–2 year charts, as published
 everything else: no React, no network, no database, no clock. Every number a
 parent sees comes out of it.
 
-- **Age is measured from term**, not from birth. The Swedish reference is
-  anchored at 40+0, so a child born at 38+0 and one born at 41+0 plot at
-  different positions on the same day of life. This is not prematurity
-  correction; it applies to every child.
+- **Age is measured from birth**, and gestational length does not move it. The
+  Swedish reference is anchored at 40+0, which makes it tempting to shift each
+  child by how far their own birth sat from that anchor — the app used to. BVC
+  does not: only preterm children get a corrected age, and they are followed on
+  a separate reference this app does not have. Correcting a term child here
+  would put the app at odds with the card the parent is holding. Gestational
+  age is still required, and decides one thing only: whether the app supports
+  this child at all.
 - **Weight is log-normal.** Its stored mean and SD are in log₁₀(kg) and the
   z-score is computed on that scale, back-transformed with `10^x` for the
   chart's bands. Length and head are normal, in centimetres. The module reads
@@ -186,8 +190,8 @@ parent sees comes out of it.
 - **Interpolation is monotone cubic (PCHIP).** A natural spline overshoots
   across the reference's wide intervals and can produce a mean growth curve
   that dips. Mean and SD are interpolated independently.
-- **Nothing is extrapolated and nothing is clamped.** Outside 0–24 months from
-  term, or outside 37–42 weeks of gestation, callers get a typed out-of-range
+- **Nothing is extrapolated and nothing is clamped.** Outside 0–24 months of
+  age, or for a child born before 37+0, callers get a typed out-of-range
   result and the UI says so in plain Swedish. A value that cannot be placed is
   still stored and still shown — it is only left off the chart, with a note
   saying why.
@@ -378,5 +382,7 @@ Invite links are not rate limited. This is a cost and availability gap, not a
 confidentiality one, and the two are worth keeping apart — see "Why invite links
 are not brute-forceable" below.
 
-Preterm children (under 37 weeks) are out of scope: the app says so rather than
-silently plotting them on term curves.
+Preterm children (born before 37+0) are out of scope: the app says so rather
+than silently plotting them on term curves. There is no upper bound — a
+post-term child (*överburen*, from 42+0) is plotted from birth like any other,
+which is what Swedish care does: no separate curve, no adjustment.

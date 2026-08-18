@@ -115,12 +115,18 @@ describe("child input", () => {
   it("says plainly that preterm is out of scope rather than failing silently", () => {
     const result = validateChild({ ...base, gestationWeeks: "35" });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.errors.gestation).toMatch(/fullgången tid/);
+    if (!result.ok) expect(result.errors.gestation).toMatch(/vecka 37/);
   });
 
-  it("rejects 42+1 and accepts 42+0", () => {
-    expect(validateChild({ ...base, gestationWeeks: "42", gestationDays: "1" }).ok).toBe(false);
-    expect(validateChild({ ...base, gestationWeeks: "42", gestationDays: "0" }).ok).toBe(true);
+  it("draws the line at 37+0", () => {
+    expect(validateChild({ ...base, gestationWeeks: "36", gestationDays: "6" }).ok).toBe(false);
+    expect(validateChild({ ...base, gestationWeeks: "37", gestationDays: "0" }).ok).toBe(true);
+  });
+
+  it("accepts a post-term child — there is no upper bound", () => {
+    for (const [weeks, days] of [["42", "0"], ["42", "1"], ["43", "2"]]) {
+      expect(validateChild({ ...base, gestationWeeks: weeks, gestationDays: days }).ok).toBe(true);
+    }
   });
 
   it("rejects a birth date in the future", () => {

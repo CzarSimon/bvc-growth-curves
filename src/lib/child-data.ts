@@ -4,7 +4,7 @@
  */
 
 import {
-  correctedAgeMonths,
+  plottableAgeMonths,
   daysBetween,
   plotMeasurement,
   type ChildRef,
@@ -41,7 +41,7 @@ export type Measurement = {
 export type CurvePoint = {
   measurementId: string;
   measuredOn: string;
-  /** Corrected age in months from term. */
+  /** Age in months since birth. */
   ageMonths: number;
   /** kg for weight, cm for length and head. */
   value: number;
@@ -127,9 +127,9 @@ export function ageDays(child: Child, onDate: string): number {
   return daysBetween(child.birthDate, onDate);
 }
 
-/** Corrected age for a date, or the reason it cannot be placed. */
-export function correctedAge(child: Child, onDate: string) {
-  return correctedAgeMonths(childRef(child), onDate);
+/** Age on a date as the chart plots it, or the reason it cannot be placed. */
+export function plottableAge(child: Child, onDate: string) {
+  return plottableAgeMonths(childRef(child), onDate);
 }
 
 export function latestMeasurement(measurements: Measurement[]): Measurement | null {

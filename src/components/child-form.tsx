@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, Input } from "@/components/ui/input";
 import { CHILD_FORM, NAV } from "@/lib/copy";
 import { MEASURE_CONFIG } from "@/lib/measures";
-import { ageCorrectionDays, isTermGestation, type Sex } from "@/lib/growth";
+import { type Sex } from "@/lib/growth";
 import { cn } from "@/lib/cn";
 import type { Child } from "@/lib/child-data";
 
@@ -22,8 +22,6 @@ export function ChildForm({ child, backHref }: { child?: Child; backHref: string
   const [sex, setSex] = React.useState<Sex>(child?.sex ?? "female");
   const [weeks, setWeeks] = React.useState(child ? String(child.gestationWeeks) : "");
   const [days, setDays] = React.useState(child ? String(child.gestationDays) : "");
-
-  const correction = correctionText(weeks, days);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
@@ -75,9 +73,10 @@ export function ChildForm({ child, backHref }: { child?: Child; backHref: string
       </div>
 
       {/*
-        Gestational length is a required field, not a nicety: it decides where
-        the whole curve sits. The card explains why in plain Swedish and shows
-        the resulting shift live.
+        Gestational length is a required field, but it does exactly one thing:
+        it decides whether these curves apply to this child at all. It does not
+        move the curve — a child born at 38+0 is plotted from birth, the same as
+        one born at 41+0, which is how BVC reads the card. The explainer says so.
       */}
       <div className="flex flex-col gap-2.5 rounded-[14px] border border-border bg-surface p-4">
         <span className="text-sm font-semibold">{CHILD_FORM.gestation}</span>
@@ -107,9 +106,6 @@ export function ChildForm({ child, backHref }: { child?: Child; backHref: string
         <p className="prose-copy m-0 text-sm/[1.5] text-ink-secondary">
           {CHILD_FORM.gestationExplainer}
         </p>
-        <div className="border-t border-dashed border-[#E0DAD0] pt-2.5 text-sm text-ink-secondary">
-          {CHILD_FORM.correctionLabel} <strong>{correction}</strong>
-        </div>
         <FieldError>{errors.gestation}</FieldError>
       </div>
 
@@ -163,16 +159,4 @@ function BirthValue({
       <FieldError>{error}</FieldError>
     </label>
   );
-}
-
-function correctionText(rawWeeks: string, rawDays: string): string {
-  const weeks = Number.parseInt(rawWeeks, 10);
-  const days = rawDays.trim() === "" ? 0 : Number.parseInt(rawDays, 10);
-  if (!Number.isInteger(weeks) || !Number.isInteger(days)) return CHILD_FORM.correctionPending;
-  if (!isTermGestation(weeks, days)) return CHILD_FORM.correctionPending;
-  const correction = ageCorrectionDays(weeks, days);
-  if (correction === 0) return CHILD_FORM.correctionNone;
-  return correction > 0
-    ? CHILD_FORM.correctionLeft(correction)
-    : CHILD_FORM.correctionRight(Math.abs(correction));
 }
