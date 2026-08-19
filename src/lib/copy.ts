@@ -48,6 +48,15 @@ export const AUTH = {
   title: "Logga in",
   intro:
     "Barntillväxt sparar barnets mätningar på ditt konto. Bara du kommer åt dem, och de du själv väljer att dela med.",
+  /**
+   * Creating an account and signing in are the same form in two modes, and the
+   * two used to be told apart by the button alone. The heading and this lead
+   * say which one the reader is in, and the lead is the one place to say what
+   * an account is before someone makes one.
+   */
+  signUpTitle: "Skapa konto",
+  signUpIntro:
+    "Kontot är ditt eget. Barnen lägger du in efteråt, och du bestämmer själv om någon annan ska se dem.",
   email: "E-postadress",
   password: "Lösenord",
   signIn: "Logga in",
@@ -56,6 +65,19 @@ export const AUTH = {
   toggleToSignIn: "Har du redan ett konto? Logga in",
   signOut: "Logga ut",
   passwordHint: "Minst 8 tecken.",
+  /**
+   * The name the people you share a child with see next to your access and
+   * under the measurements you enter. Optional — an empty field keeps the name
+   * the database derives from the email — but the hint asks for the real one,
+   * because "Erik" beside a child's health data is only worth anything to the
+   * other parent if it is the Erik they think it is.
+   *
+   * Two people are allowed the same name. Nothing checks for it and nothing
+   * refuses it: names are printed, never used to tell accounts apart.
+   */
+  displayName: "Ditt namn (valfritt)",
+  displayNameHint:
+    "Skriv ditt riktiga namn — det är så du visas för dem du delar barnets uppgifter med. Lämnar du fältet tomt bildas namnet av din e-postadress.",
   /**
    * The settings screen is the child-editing screen, which a view-only user has
    * no business on — but signing out lives there too, so they get the same
@@ -68,6 +90,7 @@ export const AUTH = {
     passwordRequired: "Fyll i ett lösenord.",
     passwordShort: "Lösenordet behöver vara minst 8 tecken.",
     alreadyRegistered: "Det finns redan ett konto med den e-postadressen.",
+    displayNameLong: "Namnet får vara högst 60 tecken.",
     generic: "Det gick inte just nu. Försök igen.",
   },
 };

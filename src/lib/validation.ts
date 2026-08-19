@@ -3,7 +3,7 @@
  * Swedish, before anything reaches the database or the maths.
  */
 
-import { VALIDATION } from "./copy";
+import { AUTH, VALIDATION } from "./copy";
 import { formatNumber, parseDecimal, todayIso } from "./format";
 import { isPreterm, isValidIsoDate, daysBetween, type Sex } from "./growth";
 import { MEASURE_CONFIG, MEASURE_ORDER } from "./measures";
@@ -67,6 +67,33 @@ export function validateChild(raw: RawChildForm): Validated<ChildInput> {
       gestationDays: days!,
     },
   };
+}
+
+/**
+ * The longest display name a profile stores. The database cuts to the same
+ * length, because the name reaches it through the user's own auth metadata and
+ * this form is not the only way in.
+ */
+export const DISPLAY_NAME_MAX_LENGTH = 60;
+
+/**
+ * The name shown to the people a child is shared with. Optional: an empty field
+ * means the database derives one from the email, which is what every account
+ * created before this field existed has.
+ *
+ * Two people may be called the same thing — a household with one surname is the
+ * ordinary case — so nothing here looks for a collision, and there is nothing
+ * for it to collide with: names are printed, never used to tell accounts apart.
+ */
+export function validateDisplayName(raw: string): Validated<string | null> {
+  // Everything that is not a printable character becomes a single space, so a
+  // pasted name cannot arrive with a newline in it or measure its length in
+  // whitespace.
+  const name = raw.replace(/[\s\p{Cc}]+/gu, " ").trim();
+  if (!name) return { ok: true, value: null };
+  if (name.length > DISPLAY_NAME_MAX_LENGTH)
+    return { ok: false, errors: { displayName: AUTH.errors.displayNameLong } };
+  return { ok: true, value: name };
 }
 
 export type MeasurementInput = {

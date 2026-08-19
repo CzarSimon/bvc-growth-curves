@@ -335,7 +335,7 @@ Access is a membership join table, not an owner column on the child:
 children        no owner_id
 child_members   (child_id, user_id, role) with roles owner / editor / viewer
 child_invites   one row per link: child, role, sha256 of the token, expiry, use
-profiles        display name per user, derived from the email at sign-up
+profiles        display name per user, typed at sign-up or derived from the email
 measurements    nullable weight_grams, length_mm, head_mm — any one may stand alone
                 created_by, stamped by a trigger, for "lagt in av Erik"
 ```
@@ -345,8 +345,16 @@ weaker co-manager. Sharing creates `owner` and `viewer` rows only.
 
 Names exist because sharing needs them — `auth.users` is not readable by the
 application roles, and an access screen that cannot name anyone is useless. A
-profile is created by a trigger on sign-up and its display name is derived from
-the email's local part; there is no screen for editing it yet.
+profile is created by a trigger on sign-up. Its display name is the optional one
+typed on the sign-up form, and the email's local part when that is left empty;
+there is no screen for editing it afterwards.
+
+The typed name reaches the trigger through `raw_user_meta_data`, which is the
+user's own writable metadata rather than something only this app can set, so the
+trigger sanitises it — whitespace collapsed, cut to 60 characters, falling back
+to the derived name if nothing is left. Nothing about a display name is unique:
+two people sharing one is ordinary, and a name is never used to tell accounts
+apart.
 
 Weight is stored in whole grams and lengths in whole millimetres. Medical
 values do not go in floats. `measured_on` is the day the child was measured and
