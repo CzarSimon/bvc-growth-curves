@@ -433,6 +433,58 @@ select pg_temp.expect(
   (select count(*) from public.profiles) = 1,
   'a user should only ever see their own profile row');
 
+-- ------------------------------------------------------------ display names --
+--
+-- The name a user types at sign-up arrives in raw_user_meta_data and is theirs
+-- to write, so what matters here is what the trigger does with it rather than
+-- that it survives intact.
+
+reset role;
+
+insert into auth.users (id) values
+  ('44444444-4444-4444-4444-444444444444'),
+  ('55555555-5555-5555-5555-555555555555')
+on conflict do nothing;
+
+-- A typed name wins over the one the email would have given. This one is also
+-- the name user A already has, which nothing anywhere refuses: two people
+-- sharing a name is ordinary, and a name identifies nobody.
+update auth.users
+   set email = 'e.s.1987@example.com',
+       raw_user_meta_data = jsonb_build_object('display_name', '  Erik   Svensson ')
+ where id = '44444444-4444-4444-4444-444444444444';
+
+select pg_temp.expect(
+  (select display_name from public.profiles
+    where id = '44444444-4444-4444-4444-444444444444') = 'Erik Svensson',
+  'a name typed at sign-up should win over the one derived from the email');
+
+select pg_temp.expect(
+  (select count(*) from public.profiles where display_name = 'Erik Svensson') = 2,
+  'two people should be allowed the same display name');
+
+-- Overlong, and whitespace where a name should be. Both are cut down here
+-- rather than trusted, and a name that sanitises to nothing falls back.
+update auth.users
+   set email = 'moa.lind@example.com',
+       raw_user_meta_data = jsonb_build_object('display_name', repeat('Å', 200))
+ where id = '55555555-5555-5555-5555-555555555555';
+
+select pg_temp.expect(
+  (select length(display_name) from public.profiles
+    where id = '55555555-5555-5555-5555-555555555555') = 60,
+  'a name from user metadata should be cut to 60 characters');
+
+update auth.users
+   set email = 'moa.lind@example.com',
+       raw_user_meta_data = jsonb_build_object('display_name', E' \t\n ')
+ where id = '55555555-5555-5555-5555-555555555555';
+
+select pg_temp.expect(
+  (select display_name from public.profiles
+    where id = '55555555-5555-5555-5555-555555555555') = 'Moa Lind',
+  'a blank name should fall back to the one derived from the email');
+
 \echo 'RLS tests passed'
 
 rollback;

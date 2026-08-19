@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AuthForm } from "./auth-form";
-import { APP_NAME, AUTH, NAV } from "@/lib/copy";
+import { APP_NAME, NAV } from "@/lib/copy";
 import { BrandMark } from "@/components/brand-mark";
 
 export default async function SignInPage({
@@ -15,12 +15,16 @@ export default async function SignInPage({
 
   return (
     <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col gap-7 px-6 py-9">
+      {/*
+        The brand, and nothing that belongs to one of the two modes. What this
+        screen is — signing in, or making an account — is said inside the card,
+        by the form that knows which one is showing.
+      */}
       <div className="mt-6 flex flex-col gap-3.5">
         <BrandMark size={44} />
         <h1 className="font-serif text-[34px] leading-[1.15] font-semibold tracking-[-0.01em]">
           {APP_NAME}
         </h1>
-        <p className="prose-copy text-[17px]/[1.5] text-ink-secondary">{AUTH.intro}</p>
       </div>
 
       <div className="rounded-[14px] border border-border bg-surface p-[18px]">

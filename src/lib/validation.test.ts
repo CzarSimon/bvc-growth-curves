@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateChild, validateMeasurement } from "./validation";
+import { validateChild, validateDisplayName, validateMeasurement } from "./validation";
 import { formatAge, formatNumber, parseDecimal, todayIso } from "./format";
 
 const child = { birthDate: "2025-08-10" };
@@ -142,6 +142,37 @@ describe("child input", () => {
   it("requires a name", () => {
     const result = validateChild({ ...base, name: "   " });
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("display name at sign-up", () => {
+  it("is optional, and empty means the email decides", () => {
+    for (const raw of ["", "   ", "\n\t"]) {
+      const result = validateDisplayName(raw);
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value).toBeNull();
+    }
+  });
+
+  it("tidies what was typed rather than refusing it", () => {
+    const result = validateDisplayName("  Erik   Svensson\n");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).toBe("Erik Svensson");
+  });
+
+  it("lets two people have the same name", () => {
+    const first = validateDisplayName("Anna Nilsson");
+    const second = validateDisplayName("Anna Nilsson");
+    expect(first.ok && second.ok).toBe(true);
+    if (first.ok && second.ok) expect(first.value).toBe(second.value);
+  });
+
+  it("stops at 60 characters", () => {
+    const ok = validateDisplayName("N".repeat(60));
+    expect(ok.ok).toBe(true);
+    const tooLong = validateDisplayName("N".repeat(61));
+    expect(tooLong.ok).toBe(false);
+    if (!tooLong.ok) expect(tooLong.errors.displayName).toBe("Namnet får vara högst 60 tecken.");
   });
 });
 

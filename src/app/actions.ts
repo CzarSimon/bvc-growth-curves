@@ -9,6 +9,7 @@ import { INVITE_ROLE, type SharedRole } from "@/lib/access";
 import { hashInviteToken, inviteUrl, newInviteToken } from "@/lib/invite";
 import {
   validateChild,
+  validateDisplayName,
   validateMeasurement,
   type FieldErrors,
 } from "@/lib/validation";
@@ -57,8 +58,21 @@ export async function signUpAction(_prev: FormState, formData: FormData): Promis
   if (!email) return fail({ email: AUTH.errors.emailRequired });
   if (password.length < 8) return fail({ password: AUTH.errors.passwordShort });
 
+  // Optional. Nothing is checked against other accounts: two people are allowed
+  // the same name, and an empty field leaves the database to derive one from
+  // the email, as it does for every account made before this field existed.
+  const displayName = validateDisplayName(field(formData, "displayName"));
+  if (!displayName.ok) return fail(displayName.errors);
+
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({ email, password });
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    // Lands in the user's own auth metadata, which the profile trigger reads
+    // and sanitises again on the way into profiles — this form is not the only
+    // route to that field, so the database does not take its word for anything.
+    options: displayName.value ? { data: { display_name: displayName.value } } : undefined,
+  });
   if (error) {
     const alreadyRegistered = /already/i.test(error.message);
     return fail({ form: alreadyRegistered ? AUTH.errors.alreadyRegistered : AUTH.errors.generic });
