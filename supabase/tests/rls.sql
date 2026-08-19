@@ -109,9 +109,12 @@ select pg_temp.expect_denied(
   'select public.create_child(''Tidig'', ''male'', date ''2025-08-10'', 36::smallint, 0::smallint)',
   'a child born at 36 weeks');
 
-select pg_temp.expect_denied(
-  'select public.create_child(''Sen'', ''male'', date ''2025-08-10'', 42::smallint, 1::smallint)',
-  'a child born at 42+1');
+-- Post-term is not a bound: 42+1 is created like any other child. Removed again
+-- straight away, so the counts further down still describe one child.
+select pg_temp.expect(
+  public.create_child('Sen', 'male', date '2025-08-10', 42::smallint, 1::smallint) is not null,
+  'a child born at 42+1 should be created like any other');
+delete from public.children where name = 'Sen';
 
 -- ------------------------------------------------------- the app's contract --
 
