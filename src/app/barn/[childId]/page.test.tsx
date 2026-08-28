@@ -93,11 +93,31 @@ describe("the home screen", () => {
     expect(html).not.toMatch(/NaN/);
   });
 
-  it("shows an em dash for a measure that was not taken", async () => {
+  it("shows an em dash for a measure that was never taken", async () => {
     measurements = [m("2025-10-10", 5.15), m("2025-11-10", 5.9)];
     const html = await renderHome();
     expect(html).toContain("—");
+    expect(html).toContain("Ingen mätning än");
     expect(html).not.toMatch(/NaN|undefined/);
+  });
+
+  it("keeps the latest length and head when the newest row is weight only", async () => {
+    measurements = [
+      m("2025-10-10", 4.5, 56.0, 39.0),
+      m("2025-11-10", 4.89, 58.0, 40.0),
+      m("2025-11-11", 4.95),
+    ];
+    const html = await renderHome();
+    // The newest weight, and the newest length and head there are — not blanks
+    // because the last row happened to be a home weighing.
+    expect(html).toContain("4,950 kg");
+    expect(html).toContain("58,0 cm");
+    expect(html).toContain("40,0 cm");
+    expect(html).not.toContain("Ingen mätning än");
+    // Each value carries the day it was taken, so nothing claims all three came
+    // from the same visit.
+    expect(html).toContain("11 november 2025");
+    expect(html).toContain("10 november 2025");
   });
 
   it("says a value is off the curve instead of plotting it somewhere", async () => {

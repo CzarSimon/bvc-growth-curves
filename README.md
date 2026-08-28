@@ -212,6 +212,19 @@ today. It holds the latest SDS constant and reads the reference forward
 - It is off by default, lives only in component state, and never appears on the
   home screen's previews. Every state that draws nothing still says why.
 
+### The home screen's values
+
+The three numbers under the reading are the latest value of *each* measure, not
+the three columns of the latest measurement (`latestValueFor` in
+`src/lib/child-data.ts`). A parent who weighs the child at home between visits
+leaves rows carrying a weight and nothing else; reading only the newest row
+would blank out the length and the head from the last BVC visit, which are
+still the newest ones there are.
+
+Because the three can come from different days, each carries its own date and
+age. Nothing on that block implies the values were taken together, and a measure
+never filled in says so rather than showing a bare dash.
+
 ### The reference data
 
 `src/data/boys-curves.json` and `src/data/girls-curves.json` are read off the
