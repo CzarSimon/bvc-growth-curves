@@ -136,3 +136,34 @@ export function latestMeasurement(measurements: Measurement[]): Measurement | nu
   const sorted = sortByDate(measurements);
   return sorted.length ? sorted[sorted.length - 1] : null;
 }
+
+/** The most recent recorded value for one measure, with the day it was taken. */
+export type LatestValue = {
+  measurementId: string;
+  measuredOn: string;
+  value: number;
+};
+
+/**
+ * The latest value of one measure, which is not the same thing as the latest
+ * measurement. A visit where only the weight was taken leaves the length and
+ * the head from the visit before as the newest ones there are — they are the
+ * child's current numbers, and blanking them out because the last row happened
+ * to be weight-only tells the parent less than the app knows.
+ *
+ * Each value carries its own date, so nothing here implies three measures were
+ * taken on the same day when they were not.
+ */
+export function latestValueFor(
+  measurements: Measurement[],
+  measure: Measure,
+): LatestValue | null {
+  const sorted = sortByDate(measurements);
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const value = measurementValue(sorted[i], measure);
+    if (value !== null) {
+      return { measurementId: sorted[i].id, measuredOn: sorted[i].measuredOn, value };
+    }
+  }
+  return null;
+}

@@ -505,7 +505,17 @@ export const READING = {
     lengthLow:
       "Längden ligger under −2 SD. Det säger inget i sig, men BVC brukar vilja följa upp det. Ta upp det vid nästa besök.",
   },
-  latestHeading: "Senaste mätning",
+  /**
+   * The heading over the values on the home screen. It says "värden" and not
+   * "mätning" because the three numbers under it need not come from the same
+   * visit: each measure shows the newest value there is of *that* measure, with
+   * its own date beside it.
+   */
+  latestHeading: "Senaste värden",
+  /** The date line under one measure: "26 augusti 2026 · 6 veckor". */
+  valueTaken: (date: string, age: string) => `${date} · ${age}`,
+  /** A measure that has never been filled in for this child. */
+  valueMissing: "Ingen mätning än",
 };
 
 export const PROVENANCE = {

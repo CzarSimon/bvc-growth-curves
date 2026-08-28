@@ -6,11 +6,10 @@ import { getChild, getMyRole, listChildAccess, listMeasurements } from "@/lib/db
 import { accessSummary, canEdit, canRead, type AccessMember } from "@/lib/access";
 import {
   ageDays,
-  latestMeasurement,
-  measurementValue,
+  latestValueFor,
   seriesFor,
-  plottableAge,
   type Child,
+  type LatestValue,
   type Measurement,
 } from "@/lib/child-data";
 import { buildReading } from "@/lib/reading";
@@ -48,7 +47,9 @@ export default async function ChildHomePage({
   if (!child) notFound();
 
   const reading = buildReading(child, measurements);
-  const latest = latestMeasurement(measurements);
+  // Every saved measurement carries at least one value, so anything at all in
+  // the list means there is something for the values block to show.
+  const hasMeasurements = measurements.length > 0;
   // A view-only user gets the measurements and the curves, and not the reading
   // or the attention card. Those interpret, and interpreting — then ringing BVC
   // about it — belongs to the child's guardians. A grandparent reading "Något
@@ -79,7 +80,7 @@ export default async function ChildHomePage({
       <div className="flex flex-col gap-3.5 lg:grid lg:grid-cols-[1.35fr_1fr] lg:items-start lg:gap-4">
         {/* Nothing but an empty box when a view-only user opens a child with no
             measurements yet, so the card only exists if it has something in it. */}
-        {showReading || latest ? (
+        {showReading || hasMeasurements ? (
           <div className="flex flex-col gap-3.5 rounded-[14px] border border-border bg-surface p-[18px] lg:p-[22px]">
             {showReading ? (
               <>
@@ -90,7 +91,9 @@ export default async function ChildHomePage({
               </>
             ) : null}
 
-            {latest ? <LatestValues child={child} latest={latest} /> : null}
+            {hasMeasurements ? (
+              <LatestValues child={child} measurements={measurements} />
+            ) : null}
           </div>
         ) : null}
 
@@ -207,53 +210,75 @@ function childMeta(child: Child): string {
 }
 
 /**
- * The latest measurement, one full-width row per measure. A three-column grid
- * was tried and is too cramped at 390px.
+ * The child's current numbers, one full-width row per measure. A three-column
+ * grid was tried and is too cramped at 390px.
+ *
+ * Each row is the newest value of *that* measure, with the day it was taken —
+ * not the three columns of one measurement. A visit where only the weight was
+ * written down would otherwise blank out the length and the head, which are
+ * still the latest ones there are and still the numbers on the BVC card.
  */
-function LatestValues({ child, latest }: { child: Child; latest: Measurement }) {
-  const age = plottableAge(child, latest.measuredOn);
-
+function LatestValues({ child, measurements }: { child: Child; measurements: Measurement[] }) {
   return (
     <div className="flex flex-col border-t border-hairline pt-2.5">
-      <span className="pb-0.5 text-[13px] text-ink-muted">
-        {READING.latestHeading} · {formatDate(latest.measuredOn)} ·{" "}
-        {formatAge(ageDays(child, latest.measuredOn))}
-      </span>
-      {MEASURE_ORDER.map((measure, index) => {
-        const config = MEASURE_CONFIG[measure];
-        const value = measurementValue(latest, measure);
-        const plotted =
-          value === null
-            ? null
-            : plotMeasurement(childRef(child), measure, latest.measuredOn, value);
-        return (
-          <div
-            key={measure}
-            className={`flex flex-col gap-0.5 pt-2.5 pb-2 ${index < 2 ? "border-b border-hairline-soft" : ""}`}
-          >
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-[15px] text-ink-secondary">{config.label}</span>
-              <span className="nums text-[21px] font-semibold">
-                {value === null
-                  ? "—"
-                  : `${formatNumber(value, config.decimals)} ${config.unit}`}
-              </span>
-            </div>
-            <span className="text-[13px] text-ink-muted">
-              {plotted === null
-                ? ""
-                : plotted.ok
-                  ? sdPhrase(plotted.value.sds)
-                  : OUT_OF_RANGE_SHORT[plotted.reason]}
-            </span>
-          </div>
-        );
-      })}
-      {!age.ok ? (
-        <span className="pt-1 text-[13px] text-ink-muted">
-          {OUT_OF_RANGE_SHORT[age.reason]}
+      <span className="pb-0.5 text-[13px] text-ink-muted">{READING.latestHeading}</span>
+      {MEASURE_ORDER.map((measure, index) => (
+        <LatestValueRow
+          key={measure}
+          child={child}
+          measure={measure}
+          latest={latestValueFor(measurements, measure)}
+          divider={index < MEASURE_ORDER.length - 1}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * One measure: its newest value, when it was taken, and where that sits on the
+ * reference — or the reason it cannot be placed there at all.
+ */
+function LatestValueRow({
+  child,
+  measure,
+  latest,
+  divider,
+}: {
+  child: Child;
+  measure: Measure;
+  latest: LatestValue | null;
+  divider: boolean;
+}) {
+  const config = MEASURE_CONFIG[measure];
+  const plotted =
+    latest === null
+      ? null
+      : plotMeasurement(childRef(child), measure, latest.measuredOn, latest.value);
+
+  return (
+    <div
+      className={`flex flex-col gap-0.5 pt-2.5 pb-2 ${divider ? "border-b border-hairline-soft" : ""}`}
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-[15px] text-ink-secondary">{config.label}</span>
+        <span className="nums text-[21px] font-semibold">
+          {latest === null ? "—" : `${formatNumber(latest.value, config.decimals)} ${config.unit}`}
         </span>
-      ) : null}
+      </div>
+      <span className="text-[13px] text-ink-muted">
+        {latest === null
+          ? READING.valueMissing
+          : READING.valueTaken(
+              formatDate(latest.measuredOn),
+              formatAge(ageDays(child, latest.measuredOn)),
+            )}
+      </span>
+      {plotted === null ? null : (
+        <span className="text-[13px] text-ink-muted">
+          {plotted.ok ? sdPhrase(plotted.value.sds) : OUT_OF_RANGE_SHORT[plotted.reason]}
+        </span>
+      )}
     </div>
   );
 }
